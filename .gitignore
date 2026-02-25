@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+venv/
+.venv/
+
+# Node
+node_modules/
+dist/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+pg_data/
+
+# Common extras
+.pytest_cache/
+.mypy_cache/
+.cache/
+*.log
+.coverage
+.coverage.*
+htmlcov/
+__pypackages__/
+
+# Lock files (keep lock files in repo for reproducible builds)
+# uv.lock
+# package-lock.json
+
+# Frontend build artifacts (if you build locally)
+frontend/.vite/
+frontend/dist/
+
+# Backend virtualenvs and local files
+backend/.venv/
+backend/.env
+
+# Ignore local Docker Compose override files
+docker-compose.override.yml
+docker-compose.*.local.yml
+
+# Editor directories
+.vscode/
+.idea/
+.ropeproject/
+
+# macOS/Windows
+.DS_Store
+Thumbs.db
+
+# Ignore runtime generated test artifacts
+tests/*.db
+
+tests
+TEST_1_Corporate_Labyrinth.pdf
+TEST_2_Tech_Timeline.pdf
+TEST_3_Messy_Compliance.pdf
+pdf_generator.py
+frontend\public

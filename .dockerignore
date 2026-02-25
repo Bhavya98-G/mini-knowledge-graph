@@ -1,0 +1,47 @@
+# -- Dev artifacts (keep out of image build contexts)
+# Python venvs and caches
+.venv/
+venv/
+env/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# Node / frontend artifacts
+frontend/node_modules/
+node_modules/
+frontend/dist/
+dist/
+build/
+frontend/.vite/
+
+# Editor and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# Environment & secrets
+.env
+.env.*
+*.pem
+*.key
+*.crt
+*.log
+
+# Python packaging/build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Test cache
+.pytest_cache/
+
+# Git metadata
+.git/
+
+# NOTE: Keep Dockerfiles and compose files in the build context.
+# Do NOT ignore `Dockerfile`, `docker-compose.yml`, or `.dockerignore` itself.
