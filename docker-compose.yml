@@ -21,8 +21,11 @@ services:
     depends_on:
       - db
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/knowledgegraph
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/knowledgegraph
       GROQ_API_KEY: ${GROQ_API_KEY}
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/main.py:/app/main.py
 
   frontend:
     build:
@@ -30,11 +33,15 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "5173:5173"
     depends_on:
       - backend
     environment:
-      VITE_API_URL: /api
+      VITE_API_URL: "http://localhost:8000/api"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
 
 volumes:
   pg_data:

@@ -11,5 +11,5 @@ RUN uv sync --frozen --no-dev
 COPY . .
 
 EXPOSE 8000
-# Production: no reload, use environment variables, and ensure PATH includes .venv
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Development: reload on file changes
+CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

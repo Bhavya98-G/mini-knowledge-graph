@@ -15,8 +15,8 @@ from functools import partial
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_groq import ChatGroq
 
-from app.config import CHUNK_SIZE, GROQ_API_KEY, GROQ_MODEL
-
+from app.core.config import get_settings
+settings = get_settings()
 logger = logging.getLogger(__name__)
 
 _llm: ChatGroq | None = None
@@ -32,8 +32,8 @@ def _get_llm() -> ChatGroq:
     global _llm
     if _llm is None:
         _llm = ChatGroq(
-            api_key=GROQ_API_KEY,
-            model=GROQ_MODEL,
+            api_key=settings.GROQ_API_KEY,
+            model=settings.GROQ_MODEL,
             temperature=0,
             max_tokens=4096,
         )
@@ -45,8 +45,8 @@ def _get_json_llm() -> ChatGroq:
     global _json_llm
     if _json_llm is None:
         _json_llm = ChatGroq(
-            api_key=GROQ_API_KEY,
-            model=GROQ_MODEL,
+            api_key=settings.GROQ_API_KEY,
+            model=settings.GROQ_MODEL,
             temperature=0,
             max_tokens=4096,
         ).bind(response_format={"type": "json_object"})
@@ -103,7 +103,7 @@ EXAMPLE OUTPUT: Semiconductor and Quantum Medical Research
 """
 
 
-def chunk_text(text: str, size: int = CHUNK_SIZE) -> list[str]:
+def chunk_text(text: str, size: int = settings.CHUNK_SIZE) -> list[str]:
     """Split *text* into chunks of roughly *size* characters.
 
     Attempts to split on sentence boundaries ('. ') first. If a single

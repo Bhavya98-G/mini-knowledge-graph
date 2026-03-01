@@ -7,10 +7,10 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
 )
-from sqlalchemy.orm import relationship as sa_relationship
-from app.database import Base
+from sqlalchemy.orm import relationship as sa_relationship, declarative_base
 
 
+Base = declarative_base()
 class Workspace(Base):
     __tablename__ = "workspaces"
 
