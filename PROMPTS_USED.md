@@ -5,7 +5,7 @@ These are the LLM prompts embedded in the application backend.
 ---
 
 ## 1. Entity & Relationship Extraction
-**File:** `backend/app/groq_service.py → EXTRACTION_PROMPT`
+**File:** `backend/app/worker/groq_service.py → EXTRACTION_PROMPT`
 
 ```
 You are an expert knowledge graph extractor. Extract ALL entities and ALL relationships — including contextual ones like location, date, and associated organizations.
@@ -24,7 +24,7 @@ RULES:
 ---
 
 ## 2. Workspace Auto-Naming
-**File:** `backend/app/groq_service.py → WORKSPACE_NAME_PROMPT`
+**File:** `backend/app/worker/groq_service.py → WORKSPACE_NAME_PROMPT`
 
 ```
 You are an expert at summarizing document themes. Generate a concise, professional name for a Workspace (a collection of documents).

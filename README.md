@@ -84,7 +84,7 @@ cp .env.example .env
 uv sync
 
 # Run the API server (auto-creates tables on first start)
-uv run uvicorn app.main:app --reload --port 8000
+uv run uvicorn main:app --reload --port 8000
 ```
 
 API will be available at `http://localhost:8000`.  
@@ -109,12 +109,13 @@ Frontend will be available at `http://localhost:5173`, with `/api` proxied autom
 mini knowledge graph/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py          # FastAPI app setup, CORS, lifespan
-│   │   ├── config.py        # Environment variables & constants
-│   │   ├── database.py      # SQLAlchemy engine, session factory
-│   │   ├── models.py        # ORM models: Workspace, Document, Entity, Relationship, Snippet
-│   │   ├── routes.py        # All API endpoints (workspaces, graph, entities, relationships)
-│   │   └── groq_service.py  # LangChain/Groq LLM extraction logic
+│   │   ├── api/             # API routes (entities, health, relationships, workspace)
+│   │   ├── core/            # Config and database setup
+│   │   ├── models/          # SQLAlchemy SQL models
+│   │   ├── schemas/         # Pydantic validation models
+│   │   ├── utils/           # Helper functions
+│   │   └── worker/          # LangChain/Groq LLM extraction logic
+│   ├── main.py              # FastAPI app setup, CORS, lifespan
 │   ├── Dockerfile
 │   └── pyproject.toml
 │
@@ -239,7 +240,7 @@ GROQ_API_KEY=gsk_...
 
 ```
 GROQ_API_KEY=gsk_...
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/knowledgegraph
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/knowledgegraph
 ```
 
 An example file is provided at `backend/.env.example`.
