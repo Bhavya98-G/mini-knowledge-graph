@@ -13,6 +13,8 @@ from app.api.workspace_routes import router as workspace_router
 from app.api.entities_routes import router as entities_router
 from app.api.relationships_routes import router as relationships_router
 from app.api.health_routes import router as health_router
+from app.api.auth_routes import router as auth_router
+from app.api.admin_routes import router as admin_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -58,3 +60,5 @@ app.include_router(health_router, prefix="/api")
 app.include_router(workspace_router, prefix="/api")
 app.include_router(entities_router, prefix="/api")
 app.include_router(relationships_router, prefix="/api")
+app.include_router(auth_router, prefix="/api")
+app.include_router(admin_router, prefix="/api")

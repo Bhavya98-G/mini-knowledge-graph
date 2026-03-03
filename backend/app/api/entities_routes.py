@@ -2,7 +2,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select
-
+from app.auth.bearer import auth_dependency
 from app.core.database import get_db
 from app.models.sql import Entity, Snippet, Document, Relationship, Workspace
 from app.schemas.pydantic_models import (
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Entities"], prefix="/entities")
 
 @router.get("/{entity_id}/details", response_model=EntityDetailOut)
-async def get_entity_details(entity_id: int, db: AsyncSession = Depends(get_db)):
+async def get_entity_details(entity_id: int, db: AsyncSession = Depends(get_db), user_id=Depends(auth_dependency)):
     """Return entity info plus all linked snippets and relationships."""
     entity = (await db.execute(select(Entity).filter(Entity.id == entity_id))).scalars().first()
     if not entity:
@@ -78,6 +78,7 @@ async def update_entity(
     entity_id: int,
     body: EntityUpdateRequest,
     db: AsyncSession = Depends(get_db),
+    user_id=Depends(auth_dependency)
 ):
     """Update an entity's name and/or type."""
     entity = (await db.execute(select(Entity).filter(Entity.id == entity_id))).scalars().first()
@@ -163,6 +164,7 @@ async def update_entity(
 async def create_entity(
     body: CreateEntityRequest,
     db: AsyncSession = Depends(get_db),
+    user_id=Depends(auth_dependency)
 ):
     """Create a new entity in a workspace."""
     ws = (await db.execute(select(Workspace).filter(Workspace.id == body.workspace_id))).scalars().first()
@@ -201,6 +203,7 @@ async def create_entity(
 async def delete_entity(
     entity_id: int,
     db: AsyncSession = Depends(get_db),
+    user_id=Depends(auth_dependency)
 ):
     """Delete an entity and all its relationships / snippets (via cascade)."""
     entity = (await db.execute(select(Entity).filter(Entity.id == entity_id))).scalars().first()
@@ -215,7 +218,7 @@ async def delete_entity(
 
 
 @router.post("/merge", response_model=GraphOut)
-async def merge_entities(body: MergeRequest, db: AsyncSession = Depends(get_db)):
+async def merge_entities(body: MergeRequest, db: AsyncSession = Depends(get_db), user_id=Depends(auth_dependency)):
     """Merge two entities: reassign relationships from merge_id to keep_id, delete merge_id."""
     keep = (await db.execute(select(Entity).filter(Entity.id == body.keep_id))).scalars().first()
     merge = (await db.execute(select(Entity).filter(Entity.id == body.merge_id))).scalars().first()

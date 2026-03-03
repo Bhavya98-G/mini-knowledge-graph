@@ -8,10 +8,23 @@ class WorkspaceOut(BaseModel):
     document_count: int = 0
     entity_count: int = 0
     relationship_count: int = 0
+    status: str = "running"
 
     class Config:
         from_attributes = True
 
+class RunningWorkspaceOut(BaseModel):
+    id: int
+    name: Optional[str] = None
+    created_at: str
+    document_count: int = 0
+    status: str = "running"
+
+    class Config:
+        from_attributes = True
+
+class WorkspaceName(BaseModel):
+    name: str | None = None
 
 class WorkspaceDetailOut(BaseModel):
     id: int
@@ -20,6 +33,7 @@ class WorkspaceDetailOut(BaseModel):
     documents: List["DocumentOut"]
     entity_count: int
     relationship_count: int
+    status: str = "running"
 
 
 class DocumentOut(BaseModel):

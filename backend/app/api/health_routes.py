@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text as sa_text
 from sqlalchemy import func
 import logging
-
+from app.auth.bearer import auth_dependency
 from app.core.database import get_db
 from app.models.sql import Workspace, Document, Entity, Relationship, Snippet
 from app.schemas.pydantic_models import HealthOut, StatsOut
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Health"])
 
 @router.get("/health", response_model=HealthOut)
-async def health_check(db: AsyncSession = Depends(get_db)):
+async def health_check(db: AsyncSession = Depends(get_db), user_id=Depends(auth_dependency)):
     """Health check: verify DB connectivity and Groq API reachability."""
     db_status = "error"
     try:
@@ -29,7 +29,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
 from sqlalchemy.future import select
 
 @router.get("/stats", response_model=StatsOut)
-async def get_stats(db: AsyncSession = Depends(get_db)):
+async def get_stats(db: AsyncSession = Depends(get_db), user_id=Depends(auth_dependency)):
     """Return global statistics across all workspaces."""
     total_workspaces = await db.scalar(select(func.count(Workspace.id))) or 0
     total_documents = await db.scalar(select(func.count(Document.id))) or 0

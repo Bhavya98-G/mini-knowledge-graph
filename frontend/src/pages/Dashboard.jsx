@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { listWorkspaces, uploadFiles, deleteWorkspace, renameWorkspace } from '../api';
+import { listWorkspaces, listRunningWorkspaces, uploadFiles, deleteWorkspace, renameWorkspace } from '../api';
 
 export default function Dashboard() {
     const [workspaces, setWorkspaces] = useState([]);
+    const [runningWorkspaces, setRunningWorkspaces] = useState([]);
     const [files, setFiles] = useState([]);
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -13,19 +14,24 @@ export default function Dashboard() {
     const [deletingId, setDeletingId] = useState(null);
     const [renamingId, setRenamingId] = useState(null);
     const [editingName, setEditingName] = useState('');
+    const [workspaceName, setWorkspaceName] = useState('');
     const [loadingStep, setLoadingStep] = useState(0);
     const fileInputRef = useRef(null);
     const navigate = useNavigate();
 
-    const fetchWorkspaces = useCallback(async () => {
-        setLoading(true);
+    const fetchWorkspaces = useCallback(async (isBg = false) => {
+        if (!isBg) setLoading(true);
         try {
-            const res = await listWorkspaces();
-            setWorkspaces(res.data);
+            const [completedRes, runningRes] = await Promise.all([
+                listWorkspaces(),
+                listRunningWorkspaces()
+            ]);
+            setWorkspaces(completedRes.data);
+            setRunningWorkspaces(runningRes.data);
         } catch {
-            showToast('Failed to load workspaces', 'error');
+            if (!isBg) showToast('Failed to load workspaces', 'error');
         } finally {
-            setLoading(false);
+            if (!isBg) setLoading(false);
         }
     }, []);
 
@@ -33,15 +39,24 @@ export default function Dashboard() {
         fetchWorkspaces();
     }, [fetchWorkspaces]);
 
+    useEffect(() => {
+        if (runningWorkspaces.length === 0) return;
+
+        const interval = setInterval(() => {
+            fetchWorkspaces(true);
+        }, 5000);
+        return () => clearInterval(interval);
+    }, [runningWorkspaces, fetchWorkspaces]);
+
     const LOADING_MESSAGES = [
-        "Reading your files...",
-        "Identifying key entities...",
-        "Discovering hidden relationships...",
-        "Consulting the AI core...",
-        "Mapping high-dimensional connections...",
-        "Structuring the knowledge graph...",
-        "Synthesizing logical edges...",
-        "Finalizing the web of insights..."
+        "Analyzing documents...",
+        "Extracting entities...",
+        "Identifying relationships...",
+        "Running structural analysis...",
+        "Assembling knowledge graph...",
+        "Verifying topological logic...",
+        "Synthesizing nodes...",
+        "Finalizing insight model..."
     ];
 
     useEffect(() => {
@@ -79,8 +94,8 @@ export default function Dashboard() {
     };
 
     const handleUpload = async () => {
-        if (files.length < 3) {
-            showToast('Please select at least 3 files', 'error');
+        if (files.length < 1) {
+            showToast('Please select at least 1 file', 'error');
             return;
         }
         if (files.length > 10) {
@@ -90,14 +105,14 @@ export default function Dashboard() {
         setUploading(true);
         setUploadProgress(0);
         try {
-            const res = await uploadFiles(files, (progressEvent) => {
+            const res = await uploadFiles(files, workspaceName, (progressEvent) => {
                 const pct = Math.round((progressEvent.loaded * 100) / progressEvent.total);
                 setUploadProgress(pct);
             });
-            showToast(`Workspace #${res.data.id} created with ${res.data.entity_count} entities!`);
+            showToast(`Workspace #${res.data.id} queued for processing!`);
             setFiles([]);
-            fetchWorkspaces();
-            navigate(`/workspace/${res.data.id}`);
+            setWorkspaceName('');
+            fetchWorkspaces(true);
         } catch (err) {
             showToast(err?.response?.data?.detail || 'Upload failed', 'error');
         } finally {
@@ -154,14 +169,14 @@ export default function Dashboard() {
             {uploading && (
                 <div className="loading-overlay ai-extraction-overlay">
                     <div className="ai-loader-visual">
-                        <div className="ai-brain-pulse">🧠</div>
+                        <div className="ai-brain-pulse"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg></div>
                         <div className="ai-synapse-ring"></div>
                         <div className="ai-synapse-ring second"></div>
                     </div>
 
                     <div className="ai-loading-content">
                         <span className="ai-loading-title">
-                            {uploadProgress < 100 ? 'Uploading Knowledge' : 'Artificial Intelligence is Reasoning'}
+                            {uploadProgress < 100 ? 'Uploading Files' : 'Processing Data'}
                         </span>
                         <p className="ai-loading-subtitle">
                             {uploadProgress < 100
@@ -182,8 +197,8 @@ export default function Dashboard() {
             )}
 
             <div className="section-header">
-                <h1>Knowledge Graph Studio</h1>
-                <p>Upload documents to extract entities and relationships automatically using AI</p>
+                <h1>Overview</h1>
+                <p>Upload and process documents to extract entities and build your knowledge graph.</p>
             </div>
 
             {/* Upload Area */}
@@ -195,10 +210,10 @@ export default function Dashboard() {
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
             >
-                <span className="upload-icon">📄</span>
-                <div className="upload-title">Drop files here or click to browse</div>
+                <span className="upload-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg></span>
+                <div className="upload-title">Drop your documents here or click to select files</div>
                 <div className="upload-subtitle">
-                    Supports PDF, TXT, MD, CSV • 3–10 files per workspace
+                    Supports PDF, TXT, MD, CSV • 1–10 files per workspace
                 </div>
                 <input
                     ref={fileInputRef}
@@ -215,7 +230,7 @@ export default function Dashboard() {
                     <div className="file-list">
                         {files.map((f, i) => (
                             <span className="file-chip" key={i}>
-                                {f.name.endsWith('.pdf') ? '📕' : '📄'} {f.name}
+                                <span style={{ fontWeight: 600, marginRight: '6px' }}>{f.name.split('.').pop().toUpperCase()}</span> {f.name}
                                 <span style={{ color: 'var(--text-muted)', marginLeft: '4px', fontSize: '0.7rem' }}>
                                     ({formatFileSize(f.size)})
                                 </span>
@@ -225,33 +240,87 @@ export default function Dashboard() {
                             </span>
                         ))}
                     </div>
+                    <div style={{ marginTop: '16px' }}>
+                        <input
+                            type="text"
+                            className="input"
+                            placeholder="Workspace Name (Optional)"
+                            value={workspaceName}
+                            onChange={(e) => setWorkspaceName(e.target.value)}
+                            style={{ maxWidth: '400px', width: '100%', padding: '10px 14px', fontSize: '1rem' }}
+                        />
+                    </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '16px', flexWrap: 'wrap' }}>
                         <button
                             id="upload-btn"
                             className="btn btn-primary"
                             onClick={handleUpload}
-                            disabled={uploading || files.length < 3}
+                            disabled={uploading || files.length < 1}
                         >
                             {uploading ? (
                                 <><span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> Processing…</>
                             ) : (
-                                `🚀 Create Knowledge Graph (${files.length} file${files.length > 1 ? 's' : ''})`
+                                `Process ${files.length} file${files.length > 1 ? 's' : ''}`
                             )}
                         </button>
                         <button className="btn btn-secondary" onClick={() => setFiles([])}>
                             Clear All
                         </button>
-                        {files.length < 3 && (
-                            <span style={{ fontSize: '0.82rem', color: 'var(--warning)' }}>
-                                ⚠️ Add {3 - files.length} more file{3 - files.length > 1 ? 's' : ''} (minimum 3 required)
-                            </span>
-                        )}
+
                     </div>
                 </div>
             )}
 
-            {/* Workspaces */}
-            <div style={{ marginTop: '48px' }}>
+            {/* Running Workspaces */}
+            {runningWorkspaces.length > 0 && (
+                <div style={{ marginTop: '48px' }}>
+                    <div className="section-header">
+                        <h1 style={{ fontSize: '1.4rem' }}>Processing Workspaces</h1>
+                        <p>These workspaces are currently being extracted by AI</p>
+                    </div>
+                    <div className="workspace-grid">
+                        {runningWorkspaces.map((ws) => (
+                            <div
+                                key={ws.id}
+                                className={`card workspace-card processing`}
+                                id={`workspace-running-${ws.id}`}
+                                style={{
+                                    opacity: 0.7,
+                                    cursor: 'not-allowed'
+                                }}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                                    <div className="card-title" style={{ flex: 1, paddingRight: '12px', marginTop: '2px' }}>
+                                        <span style={{ color: 'var(--text-accent)', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+                                            Processing...
+                                        </span>
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                                        <button
+                                            className="btn btn-danger"
+                                            style={{ padding: '4px 10px', fontSize: '0.8rem' }}
+                                            onClick={(e) => handleDelete(e, ws.id)}
+                                            disabled={deletingId === ws.id}
+                                            title="Cancel & Delete"
+                                        >
+                                            {deletingId === ws.id ? '...' : 'Cancel'}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="card-subtitle" style={{ marginBottom: '12px' }}>
+                                    {new Date(ws.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Completed Workspaces */}
+            <div style={{ marginTop: runningWorkspaces.length > 0 ? '32px' : '48px' }}>
                 <div className="section-header">
                     <h1 style={{ fontSize: '1.4rem' }}>Recent Workspaces</h1>
                     <p>Click to explore the knowledge graph • Maximum 5 workspaces (oldest auto-deleted)</p>
@@ -263,18 +332,22 @@ export default function Dashboard() {
                     </div>
                 ) : workspaces.length === 0 ? (
                     <div className="empty-state">
-                        <div className="icon">🌐</div>
+                        <div className="icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg></div>
                         <h3>No workspaces yet</h3>
-                        <p>Upload some documents above to get started</p>
+                        <p>Upload some documents above to begin</p>
                     </div>
                 ) : (
                     <div className="workspace-grid">
                         {workspaces.map((ws) => (
                             <div
                                 key={ws.id}
-                                className="card workspace-card"
+                                className={`card workspace-card ${ws.status === 'running' ? 'processing' : ''}`}
                                 id={`workspace-${ws.id}`}
-                                onClick={() => navigate(`/workspace/${ws.id}`)}
+                                onClick={() => { if (ws.status !== 'running') navigate(`/workspace/${ws.id}`); }}
+                                style={{
+                                    opacity: ws.status === 'running' ? 0.7 : 1,
+                                    cursor: ws.status === 'running' ? 'not-allowed' : 'pointer'
+                                }}
                             >
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                                     {renamingId === ws.id ? (
@@ -295,35 +368,28 @@ export default function Dashboard() {
                                         </div>
                                     ) : (
                                         <div className="card-title" style={{ flex: 1, paddingRight: '12px', marginTop: '2px' }}>
-                                            {ws.name === "Naming in progress..." ? (
-                                                <span style={{ color: 'var(--text-accent)', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
-                                                    Naming Project...
-                                                </span>
-                                            ) : (
-                                                ws.name || 'Untitled Project'
-                                            )}
+                                            {ws.name || 'Untitled Project'}
                                         </div>
                                     )}
 
                                     <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                                         <button
                                             className="btn btn-secondary"
-                                            style={{ width: '30px', height: '30px', padding: 0, fontSize: '0.8rem' }}
+                                            style={{ padding: '6px 12px', fontSize: '0.8rem' }}
                                             onClick={(e) => startRenaming(e, ws)}
                                             disabled={deletingId === ws.id}
                                             title="Rename workspace"
                                         >
-                                            ✏️
+                                            Rename
                                         </button>
                                         <button
                                             className="btn btn-danger"
-                                            style={{ width: '30px', height: '30px', padding: 0, fontSize: '0.8rem' }}
+                                            style={{ padding: '6px 12px', fontSize: '0.8rem' }}
                                             onClick={(e) => handleDelete(e, ws.id)}
                                             disabled={deletingId === ws.id}
                                             title="Delete workspace"
                                         >
-                                            {deletingId === ws.id ? '…' : '🗑️'}
+                                            {deletingId === ws.id ? '...' : 'Delete'}
                                         </button>
                                     </div>
                                 </div>
@@ -341,13 +407,13 @@ export default function Dashboard() {
                                     borderTop: '1px dashed var(--border-subtle)',
                                 }}>
                                     <div className="workspace-stat">
-                                        <span className="stat-icon">📄</span> <strong>{ws.document_count}</strong>
+                                        <span className="stat-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg></span> <strong>{ws.document_count}</strong>
                                     </div>
                                     <div className="workspace-stat">
-                                        <span className="stat-icon">🔵</span> <strong>{ws.entity_count}</strong>
+                                        <span className="stat-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /></svg></span> <strong>{ws.entity_count}</strong>
                                     </div>
                                     <div className="workspace-stat">
-                                        <span className="stat-icon">🔗</span> <strong>{ws.relationship_count}</strong>
+                                        <span className="stat-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg></span> <strong>{ws.relationship_count}</strong>
                                     </div>
                                 </div>
                             </div>
@@ -357,7 +423,7 @@ export default function Dashboard() {
             </div>
 
             <footer style={{ marginTop: 'auto', paddingTop: 'var(--space-2xl)', paddingBottom: 'var(--space-lg)', textAlign: 'center', opacity: 0.4, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                <p>🤖 AI-generated results may be inaccurate. Always compare with source documents for verification.</p>
+                <p>AI-generated extraction may contain errors. Please verify results directly against the source material.</p>
             </footer>
 
             {toast && (

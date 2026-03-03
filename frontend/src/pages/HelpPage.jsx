@@ -3,7 +3,7 @@ import { useState } from 'react';
 const SECTIONS = [
     {
         id: 'overview',
-        icon: '🔗',
+        icon: '',
         title: 'What is the Knowledge Graph?',
         color: '#6366f1',
         content: (
@@ -19,11 +19,11 @@ const SECTIONS = [
                     every chunk of text and identify structured knowledge automatically.
                 </p>
                 <div className="help-tip info">
-                    💡 Each upload creates one isolated <em>Workspace</em>. You can create multiple workspaces,
+                    Each upload creates one isolated <em>Workspace</em>. You can create multiple workspaces,
                     each with its own graph.
                 </div>
                 <div className="help-tip warning" style={{ marginTop: '8px' }}>
-                    🤖 Note: This system is AI-based. While highly accurate, the model may occasionally
+                    Note: This system is AI-based. While highly accurate, the model may occasionally
                     misinterpret context or generate false relationships. Always use the <em>Source Evidence</em>
                     snippets in the sidebar to verify extraction.
                 </div>
@@ -32,7 +32,7 @@ const SECTIONS = [
     },
     {
         id: 'upload',
-        icon: '📂',
+        
         title: 'Creating a Workspace',
         color: '#8b5cf6',
         content: (
@@ -56,11 +56,11 @@ const SECTIONS = [
                     </li>
                 </ol>
                 <div className="help-tip warning">
-                    ⚠️ Supported file types: <code>.pdf</code> &nbsp;·&nbsp; <code>.txt</code>
+                    Supported file types: <code>.pdf</code> &nbsp;·&nbsp; <code>.txt</code>
                     &nbsp;·&nbsp; <code>.md</code> &nbsp;·&nbsp; <code>.csv</code>. Other formats will be ignored.
                 </div>
                 <div className="help-tip info">
-                    💡 The system keeps a maximum of <strong>10 workspaces</strong>. When the limit is reached,
+                    The system keeps a maximum of <strong>10 workspaces</strong>. When the limit is reached,
                     the oldest workspace is automatically removed to make room.
                 </div>
             </>
@@ -68,7 +68,7 @@ const SECTIONS = [
     },
     {
         id: 'graph',
-        icon: '🕸️',
+        icon: '',
         title: 'Navigating the Graph',
         color: '#06b6d4',
         content: (
@@ -104,14 +104,14 @@ const SECTIONS = [
                     <strong>Node colour</strong> represents the entity type — see the legend at the bottom of the page.
                 </p>
                 <div className="help-tip info">
-                    💡 Relationship labels appear on edges when you zoom in past a certain threshold.
+                    Relationship labels appear on edges when you zoom in past a certain threshold.
                 </div>
             </>
         ),
     },
     {
         id: 'entity-details',
-        icon: '🔍',
+        icon: '',
         title: 'Viewing Entity Details',
         color: '#f59e0b',
         content: (
@@ -132,14 +132,14 @@ const SECTIONS = [
                     </li>
                 </ul>
                 <div className="help-tip success">
-                    ✅ Clicking another node while the sidebar is open will switch it to show that new entity.
+                    Clicking another node while the sidebar is open will switch it to show that new entity.
                 </div>
             </>
         ),
     },
     {
         id: 'search',
-        icon: '🔎',
+        icon: '',
         title: 'Searching Entities',
         color: '#10b981',
         content: (
@@ -155,14 +155,14 @@ const SECTIONS = [
                     <li>Clear the search field to return all nodes to full brightness.</li>
                 </ul>
                 <div className="help-tip info">
-                    💡 Search is case-insensitive and matches partial names (e.g. "ali" matches "Alice").
+                    Search is case-insensitive and matches partial names (e.g. "ali" matches "Alice").
                 </div>
             </>
         ),
     },
     {
         id: 'add-entity',
-        icon: '➕',
+        icon: '',
         title: 'Adding a New Entity',
         color: '#6366f1',
         content: (
@@ -178,24 +178,24 @@ const SECTIONS = [
                     <li>The new node appears on the graph immediately.</li>
                 </ol>
                 <div className="help-tip warning">
-                    ⚠️ If an entity with the same name already exists, the graph will <strong>automatically
+                    If an entity with the same name already exists, the graph will <strong>automatically
                         pan and zoom to that node</strong> and open its details — no duplicate is created.
                 </div>
                 <div className="help-tip info">
-                    💡 Press <strong>Escape</strong> to close the bar without adding anything.
+                    Press <strong>Escape</strong> to close the bar without adding anything.
                 </div>
             </>
         ),
     },
     {
         id: 'edit-entity',
-        icon: '✏️',
+        icon: '',
         title: 'Editing an Entity',
         color: '#f59e0b',
         content: (
             <>
                 <p>
-                    With the entity sidebar open, click the <strong>✏️ pencil button</strong> next to the entity name.
+                    With the entity sidebar open, click the <strong> pencil button</strong> next to the entity name.
                 </p>
                 <ul className="help-list">
                     <li>Edit the <strong>name</strong> in the text input.</li>
@@ -207,23 +207,23 @@ const SECTIONS = [
                     <li>Click <strong>Cancel</strong> (or press <strong>Escape</strong>) to discard.</li>
                 </ul>
                 <div className="help-tip success">
-                    ✅ The graph node label and colour update instantly after saving.
+                    The graph node label and colour update instantly after saving.
                 </div>
                 <div className="help-tip warning">
-                    ⚠️ Names must be unique within the workspace. Saving a duplicate name will show an error.
+                    Names must be unique within the workspace. Saving a duplicate name will show an error.
                 </div>
             </>
         ),
     },
     {
         id: 'delete-entity',
-        icon: '🗑️',
+        icon: '',
         title: 'Deleting an Entity',
         color: '#ef4444',
         content: (
             <>
                 <p>
-                    With the entity sidebar open in <em>View Mode</em>, click the <strong>🗑️ trash button</strong>
+                    With the entity sidebar open in <em>View Mode</em>, click the <strong> trash button</strong>
                     next to the entity name.
                 </p>
                 <ul className="help-list">
@@ -235,14 +235,14 @@ const SECTIONS = [
                     <li>The sidebar closes and the graph refreshes automatically.</li>
                 </ul>
                 <div className="help-tip error">
-                    🔴 Deletion is <strong>permanent and cannot be undone</strong>. Use with care.
+                    Deletion is <strong>permanent and cannot be undone</strong>. Use with care.
                 </div>
             </>
         ),
     },
     {
         id: 'connect',
-        icon: '🔗',
+        icon: '',
         title: 'Creating a Relationship',
         color: '#34d399',
         content: (
@@ -266,17 +266,17 @@ const SECTIONS = [
                     <li>The new edge appears on the graph immediately.</li>
                 </ol>
                 <div className="help-tip info">
-                    💡 Use the <strong>⇄ Swap</strong> button to reverse the direction without re-selecting.
+                    Use the <strong>⇄ Swap</strong> button to reverse the direction without re-selecting.
                 </div>
                 <div className="help-tip warning">
-                    ⚠️ Duplicate relationships (same source, target, and label) are rejected with an error toast.
+                    Duplicate relationships (same source, target, and label) are rejected with an error toast.
                 </div>
             </>
         ),
     },
     {
         id: 'remove-relation',
-        icon: '✂️',
+        icon: '',
         title: 'Removing a Relationship',
         color: '#f97316',
         content: (
@@ -291,14 +291,14 @@ const SECTIONS = [
                     <li>The graph and the connections list both refresh automatically.</li>
                 </ul>
                 <div className="help-tip info">
-                    💡 Removing a relationship does <em>not</em> delete either entity — only the edge between them.
+                    Removing a relationship does <em>not</em> delete either entity — only the edge between them.
                 </div>
             </>
         ),
     },
     {
         id: 'merge',
-        icon: '🔀',
+        icon: '',
         title: 'Merging Entities',
         color: '#a78bfa',
         content: (
@@ -315,7 +315,7 @@ const SECTIONS = [
                         <strong>Shift+Click</strong> the entity you want to <em>merge away</em> (second selection).
                     </li>
                     <li>
-                        The <strong>Merge Entities</strong> panel in the sidebar shows "✅ Keep" and "🗑️ Merge"
+                        The <strong>Merge Entities</strong> panel in the sidebar shows "Keep" and " Merge"
                         labels.
                     </li>
                     <li>Review, then click <strong>"Merge Entities"</strong>.</li>
@@ -325,17 +325,17 @@ const SECTIONS = [
                     </li>
                 </ol>
                 <div className="help-tip warning">
-                    ⚠️ Both entities must belong to the same workspace. Merging across workspaces is not supported.
+                    Both entities must belong to the same workspace. Merging across workspaces is not supported.
                 </div>
                 <div className="help-tip error">
-                    🔴 Merging is <strong>irreversible</strong>. Click × next to any selection to deselect before confirming.
+                    Merging is <strong>irreversible</strong>. Click × next to any selection to deselect before confirming.
                 </div>
             </>
         ),
     },
     {
         id: 'shortcuts',
-        icon: '⌨️',
+        icon: '',
         title: 'Keyboard & Mouse Shortcuts',
         color: '#64748b',
         content: (
@@ -379,7 +379,7 @@ const SECTIONS = [
     },
     {
         id: 'status',
-        icon: '📊',
+        icon: '',
         title: 'Status Page',
         color: '#06b6d4',
         content: (
@@ -397,7 +397,7 @@ const SECTIONS = [
                     </li>
                 </ul>
                 <div className="help-tip info">
-                    💡 Use the Status page to diagnose issues if graph creation seems to hang or fail.
+                    Use the Status page to diagnose issues if graph creation seems to hang or fail.
                 </div>
             </>
         ),
@@ -413,7 +413,7 @@ export default function HelpPage() {
         <div className="help-page">
             {/* Hero */}
             <div className="help-hero">
-                <div className="help-hero-icon">📖</div>
+                <div className="help-hero-icon"></div>
                 <h1 className="help-hero-title">User Guide</h1>
                 <p className="help-hero-sub">
                     Everything you need to know about using the Mini Knowledge Graph application.
@@ -432,7 +432,7 @@ export default function HelpPage() {
                             document.getElementById(`section-${s.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                         }}
                     >
-                        {s.icon} {s.title}
+                        {s.title}
                     </button>
                 ))}
             </div>
@@ -449,7 +449,7 @@ export default function HelpPage() {
                             style={{ '--section-color': s.color }}
                         >
                             <button className="help-section-header" onClick={() => toggle(s.id)}>
-                                <span className="help-section-icon">{s.icon}</span>
+                                
                                 <span className="help-section-title">{s.title}</span>
                                 <span className="help-section-chevron">{isOpen ? '▲' : '▼'}</span>
                             </button>
@@ -465,7 +465,7 @@ export default function HelpPage() {
 
             {/* Footer note */}
             <div className="help-footer-note">
-                <span>🔗</span>
+                <span></span>
                 <span>
                     Built with <strong>FastAPI</strong> + <strong>PostgreSQL</strong> + <strong>Groq LLaMA</strong> on the backend,
                     and <strong>React</strong> + <strong>react-force-graph-2d</strong> on the frontend.

@@ -68,8 +68,8 @@ export default function GraphView() {
         setTimeout(() => setToast(null), 3500);
     };
 
-    const fetchGraph = useCallback(async () => {
-        setLoading(true);
+    const fetchGraph = useCallback(async (isBg = false) => {
+        if (!isBg) setLoading(true);
         try {
             const [graphRes, wsRes] = await Promise.all([
                 getGraph(id),
@@ -78,15 +78,27 @@ export default function GraphView() {
             setGraphData(graphRes.data);
             setWorkspaceInfo(wsRes.data);
         } catch {
-            showToast('Failed to load graph', 'error');
+            if (!isBg) showToast('Failed to load graph', 'error');
         } finally {
-            setLoading(false);
+            if (!isBg) setLoading(false);
         }
     }, [id]);
 
     useEffect(() => {
         fetchGraph();
     }, [fetchGraph]);
+
+    useEffect(() => {
+        let interval;
+        if (workspaceInfo?.status === 'running') {
+            interval = setInterval(() => {
+                fetchGraph(true);
+            }, 5000);
+        }
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [workspaceInfo?.status, fetchGraph]);
 
     // ─── Responsive graph dimensions ───
     useEffect(() => {
@@ -314,7 +326,7 @@ export default function GraphView() {
                     } catch {
                         showToast('Could not load entity details', 'error');
                     }
-                    showToast(`"${existing.name}" already exists — jumping to it 📍`, 'info');
+                    showToast(`"${existing.name}" already exists — jumping to it `, 'info');
                 } else {
                     // Exists in DB but not yet in local graphData (edge case)
                     showToast(err.response.data.detail, 'error');
@@ -538,6 +550,25 @@ export default function GraphView() {
         );
     }
 
+    if (workspaceInfo?.status === 'running') {
+        return (
+            <div style={{ textAlign: 'center', padding: '120px' }}>
+                <div className="ai-loader-visual" style={{ margin: '0 auto 32px auto' }}>
+                    <div className="ai-brain-pulse" style={{ fontSize: '3rem' }}></div>
+                    <div className="ai-synapse-ring" style={{ width: '80px', height: '80px', top: '-10px', left: '-10px' }}></div>
+                    <div className="ai-synapse-ring second" style={{ width: '100px', height: '100px', top: '-20px', left: '-20px' }}></div>
+                </div>
+                <h2 style={{ fontSize: '1.5rem', color: 'var(--text-accent)' }}>Knowledge Extraction in Progress</h2>
+                <p className="loading-text" style={{ marginTop: '16px', maxWidth: '400px', margin: '16px auto', lineHeight: 1.6 }}>
+                    The AI is currently processing the documents for this workspace. This page will automatically update when the graph is ready...
+                </p>
+                <button className="btn btn-secondary" style={{ marginTop: '24px' }} onClick={() => navigate('/')}>
+                    ← Back to Dashboard
+                </button>
+            </div>
+        );
+    }
+
     return (
         <>
             {/* Top bar */}
@@ -580,7 +611,7 @@ export default function GraphView() {
                 </div>
                 <div style={{ display: 'flex', gap: '4px' }}>
                     <button className="btn btn-primary" onClick={() => setShowAddEntity((v) => !v)} title="Add new entity" style={{ padding: '6px 10px' }}>
-                        + Entity
+                        Add Entity
                     </button>
                     <button className="btn btn-secondary" onClick={handleZoomIn} title="Zoom In" style={{ padding: '6px 10px' }}>
                         +
@@ -598,7 +629,7 @@ export default function GraphView() {
             {showAddEntity && (
                 <div className="add-entity-bar">
                     <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-accent)', whiteSpace: 'nowrap' }}>
-                        ➕ New Entity
+                         New Entity
                     </span>
                     <input
                         id="new-entity-name"
@@ -644,7 +675,7 @@ export default function GraphView() {
                         <input
                             id="entity-search"
                             className="input"
-                            placeholder="🔍 Search entities…"
+                            placeholder=" Search entities…"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
@@ -661,7 +692,7 @@ export default function GraphView() {
 
                     {graphData.nodes.length === 0 ? (
                         <div className="empty-state" style={{ paddingTop: '120px' }}>
-                            <div className="icon">🕸️</div>
+                            <div className="icon"></div>
                             <h3>No entities found</h3>
                             <p>This workspace has no extracted data yet</p>
                         </div>
@@ -787,7 +818,7 @@ export default function GraphView() {
                                             title="Edit entity"
                                             id="edit-entity-trigger"
                                         >
-                                            ✏️
+                                            
                                         </button>
                                         <button
                                             className="btn btn-danger edit-entity-btn"
@@ -796,7 +827,7 @@ export default function GraphView() {
                                             title="Delete entity"
                                             id="delete-entity-trigger"
                                         >
-                                            {deleting ? '…' : '🗑️'}
+                                            {deleting ? '…' : ''}
                                         </button>
                                     </div>
                                     <span className={`entity-type-badge ${entityDetail.type?.toLowerCase()}`}>
@@ -849,7 +880,7 @@ export default function GraphView() {
                                     entityDetail.snippets.map((s) => (
                                         <div className="snippet-card" key={s.id}>
                                             <div className="snippet-text">{s.source_text}</div>
-                                            <div className="snippet-source">📄 {s.document_filename}</div>
+                                            <div className="snippet-source"> {s.document_filename}</div>
                                         </div>
                                     ))
                                 ) : (
@@ -870,7 +901,7 @@ export default function GraphView() {
 
                     {/* Merge Panel */}
                     <div className="merge-panel">
-                        <h4>🔗 Merge Entities</h4>
+                        <h4> Merge Entities</h4>
                         <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
                             <strong>Shift+Click</strong> two nodes to select them for merging.
                             The first is <em>kept</em>, the second is <em>merged into</em> it.
@@ -884,7 +915,7 @@ export default function GraphView() {
                             {mergeSelection.map((m, i) => (
                                 <div className="merge-entity" key={m.id}>
                                     <span>
-                                        {i === 0 ? '✅ Keep: ' : '🗑️ Merge: '}
+                                        {i === 0 ? 'Keep: ' : ' Merge: '}
                                         <strong>{m.name}</strong>
                                         <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginLeft: '4px' }}>
                                             ({m.type})
@@ -922,7 +953,7 @@ export default function GraphView() {
 
                     {/* Connect / Create Relationship Panel */}
                     <div className="connect-panel">
-                        <h4>➕ Connect Entities</h4>
+                        <h4> Connect Entities</h4>
                         <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
                             <strong>Ctrl+Click</strong> two nodes to select source → target,
                             then type the relationship label.
@@ -936,7 +967,7 @@ export default function GraphView() {
                             {connectSelection.map((c, i) => (
                                 <div className="connect-entity" key={c.id}>
                                     <span>
-                                        {i === 0 ? '🟢 Source: ' : '🔵 Target: '}
+                                        {i === 0 ? ' Source: ' : ' Target: '}
                                         <strong>{c.name}</strong>
                                         <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginLeft: '4px' }}>
                                             ({c.type})
@@ -1013,13 +1044,13 @@ export default function GraphView() {
                     </span>
                 ))}
                 <span style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                    💡 Node size = connection count • Click = details / edit • Shift+Click = merge • Ctrl+Click = connect
+                    Node size = connection count • Click = details / edit • Shift+Click = merge • Ctrl+Click = connect
                 </span>
             </div>
 
             {/* Subtle AI Disclaimer */}
             <div style={{ textAlign: 'center', marginTop: '12px', opacity: 0.5, fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                <span>🤖 Knowledge is extracted by AI — results may contain inaccuracies or false positives. Verify with document evidence.</span>
+                <span>Knowledge is extracted by AI — results may contain inaccuracies or false positives. Verify with document evidence.</span>
             </div>
 
             {toast && <div className={`toast ${toast.type}`}>{toast.message}</div>}

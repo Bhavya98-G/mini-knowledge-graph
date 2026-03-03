@@ -11,13 +11,24 @@ from sqlalchemy.orm import relationship as sa_relationship, declarative_base
 
 
 Base = declarative_base()
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(512), nullable=False)
+    email = Column(String(512), nullable=False)
+    password = Column(String(512), nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+
 class Workspace(Base):
     __tablename__ = "workspaces"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(512), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
-
+    status = Column(String(512), default="running")
     documents = sa_relationship(
         "Document", back_populates="workspace", cascade="all, delete-orphan"
     )

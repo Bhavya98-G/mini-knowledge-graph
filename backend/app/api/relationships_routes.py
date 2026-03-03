@@ -2,7 +2,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select
-
+from app.auth.bearer import auth_dependency
 from app.core.database import get_db
 from app.models.sql import Entity, Relationship
 from app.schemas.pydantic_models import GraphOut, CreateRelationshipRequest
@@ -15,6 +15,7 @@ router = APIRouter(tags=["Relationships"],prefix="/relationships")
 async def create_relationship(
     body: CreateRelationshipRequest,
     db: AsyncSession = Depends(get_db),
+    user_id=Depends(auth_dependency)
 ):
     """Create a new relationship between two entities."""
     source = (await db.execute(select(Entity).filter(Entity.id == body.source_id))).scalars().first()
@@ -65,6 +66,7 @@ async def create_relationship(
 async def delete_relationship(
     relationship_id: int,
     db: AsyncSession = Depends(get_db),
+    user_id=Depends(auth_dependency)
 ):
     """Delete a single relationship by ID."""
     rel = (await db.execute(select(Relationship).filter(Relationship.id == relationship_id))).scalars().first()

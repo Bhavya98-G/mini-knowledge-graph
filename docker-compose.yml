@@ -11,6 +11,14 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
   backend:
     build:
       context: ./backend
@@ -20,9 +28,30 @@ services:
       - "8000:8000"
     depends_on:
       - db
+      - redis
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/knowledgegraph
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       GROQ_API_KEY: ${GROQ_API_KEY}
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/main.py:/app/main.py
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - db
+      - redis
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/knowledgegraph
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      GROQ_API_KEY: ${GROQ_API_KEY}
+    command: [ "uv", "run", "arq", "app.worker.main.WorkerSettings" ]
     volumes:
       - ./backend/app:/app/app
       - ./backend/main.py:/app/main.py
@@ -45,3 +74,4 @@ services:
 
 volumes:
   pg_data:
+  redis_data:

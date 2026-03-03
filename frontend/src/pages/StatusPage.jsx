@@ -59,7 +59,11 @@ export default function StatusPage() {
             <div className="status-grid">
                 <div className="card status-card">
                     <div className="status-icon">
-                        {status?.db === 'ok' ? '🟢' : '🔴'}
+                        {status?.db === 'ok' ? (
+                            <div style={{ width: 14, height: 14, borderRadius: '50%', background: 'var(--success)', margin: '0 auto', boxShadow: '0 0 10px var(--success)' }} />
+                        ) : (
+                            <div style={{ width: 14, height: 14, borderRadius: '50%', background: 'var(--error)', margin: '0 auto', boxShadow: '0 0 10px var(--error)' }} />
+                        )}
                     </div>
                     <div className="status-label">PostgreSQL Database</div>
                     <div className={`status-value ${status?.db}`} id="status-db">
@@ -69,7 +73,11 @@ export default function StatusPage() {
 
                 <div className="card status-card">
                     <div className="status-icon">
-                        {status?.llm === 'ok' ? '🟢' : '🔴'}
+                        {status?.llm === 'ok' ? (
+                            <div style={{ width: 14, height: 14, borderRadius: '50%', background: 'var(--success)', margin: '0 auto', boxShadow: '0 0 10px var(--success)' }} />
+                        ) : (
+                            <div style={{ width: 14, height: 14, borderRadius: '50%', background: 'var(--error)', margin: '0 auto', boxShadow: '0 0 10px var(--error)' }} />
+                        )}
                     </div>
                     <div className="status-label">Groq LLM API</div>
                     <div className={`status-value ${status?.llm}`} id="status-llm">
@@ -79,7 +87,11 @@ export default function StatusPage() {
 
                 <div className="card status-card">
                     <div className="status-icon">
-                        {allOk ? '✅' : '⚠️'}
+                        {allOk ? (
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--success)' }}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+                        ) : (
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--error)' }}><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                        )}
                     </div>
                     <div className="status-label">Overall Health</div>
                     <div className={`status-value ${allOk ? 'ok' : 'error'}`} id="status-overall">
@@ -98,7 +110,7 @@ export default function StatusPage() {
 
                     <div className="status-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
                         <div className="card status-card">
-                            <div className="status-icon" style={{ fontSize: '1.8rem' }}>📁</div>
+                            <div className="status-icon" style={{ fontSize: '1.8rem' }}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="3" width="20" height="14" rx="2" ry="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg></div>
                             <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                                 {stats.total_workspaces}
                             </div>
@@ -106,7 +118,7 @@ export default function StatusPage() {
                         </div>
 
                         <div className="card status-card">
-                            <div className="status-icon" style={{ fontSize: '1.8rem' }}>📄</div>
+                            <div className="status-icon" style={{ fontSize: '1.8rem' }}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg></div>
                             <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                                 {stats.total_documents}
                             </div>
@@ -114,7 +126,7 @@ export default function StatusPage() {
                         </div>
 
                         <div className="card status-card">
-                            <div className="status-icon" style={{ fontSize: '1.8rem' }}>🔵</div>
+                            <div className="status-icon" style={{ fontSize: '1.8rem' }}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10" /></svg></div>
                             <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                                 {stats.total_entities}
                             </div>
@@ -122,7 +134,7 @@ export default function StatusPage() {
                         </div>
 
                         <div className="card status-card">
-                            <div className="status-icon" style={{ fontSize: '1.8rem' }}>🔗</div>
+                            <div className="status-icon" style={{ fontSize: '1.8rem' }}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg></div>
                             <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                                 {stats.total_relationships}
                             </div>
@@ -130,7 +142,7 @@ export default function StatusPage() {
                         </div>
 
                         <div className="card status-card">
-                            <div className="status-icon" style={{ fontSize: '1.8rem' }}>📝</div>
+                            <div className="status-icon" style={{ fontSize: '1.8rem' }}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><polyline points="4 7 4 4 20 4 20 7" /><line x1="9" y1="20" x2="15" y2="20" /><line x1="12" y1="4" x2="12" y2="20" /></svg></div>
                             <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                                 {stats.total_snippets}
                             </div>
@@ -146,7 +158,7 @@ export default function StatusPage() {
                     onClick={runCheck}
                     disabled={loading}
                 >
-                    {loading ? 'Checking…' : '🔄 Refresh Now'}
+                    {loading ? 'Checking...' : 'Refresh Status'}
                 </button>
             </div>
         </>

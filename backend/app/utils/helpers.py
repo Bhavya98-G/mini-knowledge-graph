@@ -1,11 +1,12 @@
 import logging
+import io
 import pdfplumber
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select
 
 from app.models.sql import Workspace, Document, Entity, Relationship
-from app.schemas.pydantic_models import WorkspaceOut, GraphOut, NodeOut, LinkOut
+from app.schemas.pydantic_models import WorkspaceOut, RunningWorkspaceOut, GraphOut, NodeOut, LinkOut
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,18 @@ def _extract_pdf_text(file: UploadFile) -> str:
         logger.error("Failed to extract text from PDF %s: %s", file.filename, e)
     return text
 
+def _extract_pdf_text_from_bytes(content: bytes, filename: str) -> str:
+    text = ""
+    try:
+        with pdfplumber.open(io.BytesIO(content)) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text + "\n"
+    except Exception as e:
+        logger.error("Failed to extract text from PDF %s: %s", filename, e)
+    return text
+
 async def _read_text_file(file: UploadFile) -> str:
     raw = await file.read()
     return raw.decode("utf-8", errors="replace")
@@ -53,6 +66,17 @@ async def _build_workspace_out(ws: Workspace, db: AsyncSession) -> WorkspaceOut:
         document_count=doc_count,
         entity_count=ent_count,
         relationship_count=rel_count,
+        status=ws.status,
+    )
+
+async def _build_running_workspace_out(ws: Workspace, db: AsyncSession) -> RunningWorkspaceOut:
+    doc_count = await db.scalar(select(func.count(Document.id)).filter(Document.workspace_id == ws.id)) or 0
+    return RunningWorkspaceOut(
+        id=ws.id,
+        name=ws.name,
+        created_at=ws.created_at.isoformat(),
+        document_count=doc_count,
+        status=ws.status,
     )
 
 async def _build_graph_out(workspace_id: int, db: AsyncSession) -> GraphOut:

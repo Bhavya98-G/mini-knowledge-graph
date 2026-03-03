@@ -76,9 +76,10 @@ You can override it with the `DATABASE_URL` environment variable.
 ```bash
 cd backend
 
-# Copy and fill in the environment file
-cp .env.example .env
-# Edit .env: set GROQ_API_KEY and DATABASE_URL
+# The environment file is at the root level (.env.example). 
+# Make sure your root .env is configured with GROQ_API_KEY, DATABASE_URL, and SECRET_KEY
+# If you haven't yet, copy the root example file:
+# cp ../.env.example ../.env
 
 # Install dependencies with uv
 uv sync
@@ -109,7 +110,8 @@ Frontend will be available at `http://localhost:5173`, with `/api` proxied autom
 mini knowledge graph/
 ├── backend/
 │   ├── app/
-│   │   ├── api/             # API routes (entities, health, relationships, workspace)
+│   │   ├── api/             # API routes (auth, entities, health, relationships, workspace)
+│   │   ├── auth/            # JWT bearer, password hashing, and login/register services
 │   │   ├── core/            # Config and database setup
 │   │   ├── models/          # SQLAlchemy SQL models
 │   │   ├── schemas/         # Pydantic validation models
@@ -125,10 +127,13 @@ mini knowledge graph/
 │   │   ├── api.js           # Axios wrappers for every backend endpoint
 │   │   ├── index.css        # Full design system (dark theme, tokens, components)
 │   │   └── pages/
-│   │       ├── Dashboard.jsx   # File upload, workspace list cards
-│   │       ├── GraphView.jsx   # Interactive force graph + sidebar
-│   │       ├── StatusPage.jsx  # Health check and global stats
-│   │       └── HelpPage.jsx    # User guide
+│   │       ├── Dashboard.jsx      # File upload, workspace list cards
+│   │       ├── GraphView.jsx      # Interactive force graph + sidebar
+│   │       ├── StatusPage.jsx     # Health check and global stats
+│   │       ├── HelpPage.jsx       # User guide
+│   │       ├── Login.jsx          # Login form
+│   │       ├── Register.jsx       # Registration form
+│   │       └── ForgotPassword.jsx # Password reset form
 │   ├── vite.config.js
 │   └── package.json
 │
@@ -144,6 +149,7 @@ mini knowledge graph/
 
 | Feature | Detail |
 |--------|--------|
+| **Authentication & Authorization** | Full JWT-based user authentication system with secure BCrypt password hashing. Protected endpoints demand a Bearer token. Includes Registration, Login, and Forgot/Reset Password workflows. |
 | **Document ingestion** | Accepts 3–10 files per workspace (PDF, TXT, MD, CSV). PDFs parsed with `pdfplumber`; text files decoded as UTF-8. |
 | **LLM extraction** | Uses `langchain-groq` with `llama-3.3-70b-versatile`. Text is chunked (~2 000 chars, sentence-aware) and each chunk is sent to the LLM in JSON mode to extract `entities` and `relationships`. |
 | **Entity normalization** | Strips honorifics and articles (`Mr.`, `The`, `Dr.`, etc.); deduplicates across chunks by `(normalized_name, type)`. |
@@ -164,6 +170,7 @@ mini knowledge graph/
 
 | Feature | Detail |
 |--------|--------|
+| **Authentication UI** | Dedicated pages for Login, Registration, and Forgot Password with strict client-side password validation (uppercase, lowercase, number, special char, min length 8) and smooth routing integration. |
 | **Dashboard** | Drag-and-drop or click-to-browse file upload. Live file list with size display and remove button. Validation (min 3, max 10 files). |
 | **AI loading overlay** | Full-screen animated overlay with rotating "reasoning" messages and a progress bar during upload + LLM processing. |
 | **Workspace cards** | Show AI-generated name, creation date, and counts (documents / entities / relationships). Click to open the graph. |
@@ -189,7 +196,6 @@ mini knowledge graph/
 ## What Is NOT Done (Future Work)
 
 ### Security & Auth
-- **Authentication & Authorization** – The app has no login system. Any visitor can read, create, modify, or delete any workspace. Adding JWT-based auth with user accounts would scope workspaces per user and prevent unauthorized access.
 - **Input sanitisation / rate limiting** – No request-level rate limiting on the upload endpoint; a single user can exhaust LLM quota rapidly.
 
 ### Backend Performance
@@ -230,17 +236,14 @@ mini knowledge graph/
 
 ## Environment Variables
 
-### Root `.env` (used by Docker Compose)
+### Root `.env`
+
+The main environment configuration should be placed at the project root `.env`:
 
 ```
 GROQ_API_KEY=gsk_...
-```
-
-### `backend/.env`
+SECRET_KEY=your-secret-key-here
 
 ```
-GROQ_API_KEY=gsk_...
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/knowledgegraph
-```
 
-An example file is provided at `backend/.env.example`.
+An example file is provided at the root folder: `.env.example`.
