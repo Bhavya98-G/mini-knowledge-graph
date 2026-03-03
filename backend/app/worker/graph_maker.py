@@ -39,7 +39,7 @@ async def build_graph_for_workspace(workspace_id: int, file_data: list = None):
                 )
                 db.add(doc)
             
-            await db.flush()
+            await db.commit()
         
         documents = (await db.execute(select(Document).filter(Document.workspace_id == workspace_id))).scalars().all()
         
@@ -119,8 +119,10 @@ async def build_graph_for_workspace(workspace_id: int, file_data: list = None):
                 )
                 db.add(snippet)
         
-        # Generate workspace name from cumulative text
-        workspace.name = await generate_workspace_name(cumulative_text)
+        # Generate workspace name from cumulative text only if not provided by user
+        if workspace.name == "Naming in progress...":
+            workspace.name = await generate_workspace_name(cumulative_text)
+            
         workspace.status = "completed"
         
         await db.commit()

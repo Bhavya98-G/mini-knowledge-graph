@@ -46,7 +46,7 @@ async def get_arq_pool():
 @router.post("/upload", response_model=WorkspaceOut)
 async def upload_workspace(
     response: Response,
-    payload: WorkspaceName = Depends(),
+    name: Optional[str] = Form(None),
     files: List[UploadFile] = File(...),
     db: AsyncSession = Depends(get_db),
     user_id=Depends(auth_dependency)
@@ -65,13 +65,12 @@ async def upload_workspace(
             response.headers["X-Workspace-Evicted"] = "true"
 
         # Create workspace
-        if payload.name and payload.name.strip():
-            workspace = Workspace(name=payload.name.strip(), status="running", user_id=user_id)
+        if name and name.strip():
+            workspace = Workspace(name=name.strip(), status="running", user_id=user_id)
         else:
             workspace = Workspace(name="Naming in progress...", status="running", user_id=user_id)
         db.add(workspace)
         await db.flush()
-        
         # Extract text directly from uploaded files before they are out of scope
         file_data = []
         for upload_file in files:

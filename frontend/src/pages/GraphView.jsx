@@ -27,6 +27,14 @@ function getColor(type) {
     return TYPE_COLORS[type?.toLowerCase()] || '#94a3b8';
 }
 
+/* hex → rgba helper */
+function hexAlpha(hex, a) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r},${g},${b},${a})`;
+}
+
 export default function GraphView() {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -378,158 +386,203 @@ export default function GraphView() {
     const truncate = (str, max = 18) =>
         str.length > max ? str.slice(0, max - 1) + '…' : str;
 
-    /* ─── Custom node rendering ─── */
+    /* ─── Custom node rendering — Glowing Orbs ─── */
     const paintNode = useCallback(
         (node, ctx, globalScale) => {
+            if (!Number.isFinite(node.x) || !Number.isFinite(node.y)) return;
+
             const isHovered = hoveredNode === node.id;
-            const label = isHovered ? node.name : truncate(node.name);
-            const fontSize = Math.max(11 / globalScale, 2.5);
+            const isSelected = selectedEntity?.id === node.id;
             const color = getColor(node.type);
 
-            // Make node size dramatically reflect connections
             const connNorm = (node.connection_count || 0) / maxConnections;
-            const baseRadius = 6 + connNorm * 20; // Range from 6 to 26
+            const baseRadius = 6 + connNorm * 20;
             const radius = Math.max(baseRadius, 5 / globalScale);
 
-            // Dim non-matching nodes during search
-            const dimmed = isSearching && !matchedIds.has(node.id);
-            const alpha = dimmed ? 0.12 : 1;
+            // Focus mode: dim nodes not connected to selected
+            const isConnectedToSelected = selectedEntity
+                ? graphData.links.some((l) => {
+                    const sid = l.source?.id ?? l.source;
+                    const tid = l.target?.id ?? l.target;
+                    return (
+                        (sid === selectedEntity.id && tid === node.id) ||
+                        (tid === selectedEntity.id && sid === node.id)
+                    );
+                })
+                : false;
+
+            const inFocusMode = !!selectedEntity;
+            const isFocused = inFocusMode && (isSelected || isConnectedToSelected);
+            const focusDim = inFocusMode && !isFocused;
+
+            // Search dim
+            const searchDim = isSearching && !matchedIds.has(node.id);
+            const dimmed = searchDim || focusDim;
+            const alpha = dimmed ? 0.1 : 1;
 
             ctx.globalAlpha = alpha;
 
-            // Glow for matched or hovered nodes
-            if ((isSearching && matchedIds.has(node.id)) || isHovered) {
+            // ── Outer ambient glow (large, soft) ──
+            if (!dimmed) {
+                const glowR = radius * 3.5;
+                const grd = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, glowR);
+                grd.addColorStop(0, hexAlpha(color, isHovered || isSelected ? 0.25 : 0.1));
+                grd.addColorStop(1, hexAlpha(color, 0));
                 ctx.beginPath();
-                ctx.arc(node.x, node.y, radius + 6, 0, 2 * Math.PI);
-                ctx.fillStyle = color + '25';
+                ctx.arc(node.x, node.y, glowR, 0, 2 * Math.PI);
+                ctx.fillStyle = grd;
                 ctx.fill();
             }
 
-            // Selected glow
-            if (selectedEntity?.id === node.id) {
+            // ── Selection ring ──
+            if (isSelected) {
                 ctx.beginPath();
-                ctx.arc(node.x, node.y, radius + 8, 0, 2 * Math.PI);
-                ctx.fillStyle = '#6366f130';
-                ctx.fill();
+                ctx.arc(node.x, node.y, radius + 5, 0, 2 * Math.PI);
+                ctx.strokeStyle = hexAlpha(color, 0.6);
+                ctx.lineWidth = 2 / globalScale;
+                ctx.stroke();
             }
 
-            // Merge selection ring
+            // ── Merge selection dashed ring ──
             if (mergeSelection.find((m) => m.id === node.id)) {
                 ctx.beginPath();
-                ctx.arc(node.x, node.y, radius + 3, 0, 2 * Math.PI);
+                ctx.arc(node.x, node.y, radius + 4, 0, 2 * Math.PI);
                 ctx.strokeStyle = '#fbbf24';
-                ctx.lineWidth = 2 / globalScale;
-                ctx.setLineDash([4 / globalScale, 2 / globalScale]);
+                ctx.lineWidth = 1.5 / globalScale;
+                ctx.setLineDash([4 / globalScale, 2.5 / globalScale]);
                 ctx.stroke();
                 ctx.setLineDash([]);
             }
 
-            // Connect selection ring (green)
+            // ── Connect selection dashed ring ──
             if (connectSelection.find((c) => c.id === node.id)) {
                 ctx.beginPath();
-                ctx.arc(node.x, node.y, radius + 3, 0, 2 * Math.PI);
+                ctx.arc(node.x, node.y, radius + 4, 0, 2 * Math.PI);
                 ctx.strokeStyle = '#34d399';
-                ctx.lineWidth = 2 / globalScale;
-                ctx.setLineDash([4 / globalScale, 2 / globalScale]);
+                ctx.lineWidth = 1.5 / globalScale;
+                ctx.setLineDash([4 / globalScale, 2.5 / globalScale]);
                 ctx.stroke();
                 ctx.setLineDash([]);
             }
 
-            // Node circle
+            // ── Main orb body (radial gradient) ──
+            const orbGrd = ctx.createRadialGradient(
+                node.x - radius * 0.3, node.y - radius * 0.3, 0,
+                node.x, node.y, radius
+            );
+            orbGrd.addColorStop(0, hexAlpha(color.replace(/[0-9a-f]{2}$/, 'ff'), 1));
+            orbGrd.addColorStop(1, hexAlpha(color, 0.7));
+
             ctx.beginPath();
             ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
-            ctx.fillStyle = color;
+            ctx.fillStyle = orbGrd;
             ctx.fill();
 
-            // Inner highlight
+            // ── Specular highlight ──
+            const hGrd = ctx.createRadialGradient(
+                node.x - radius * 0.28, node.y - radius * 0.28, 0,
+                node.x, node.y, radius * 0.7
+            );
+            hGrd.addColorStop(0, 'rgba(255,255,255,0.35)');
+            hGrd.addColorStop(1, 'rgba(255,255,255,0)');
             ctx.beginPath();
-            ctx.arc(node.x - radius * 0.22, node.y - radius * 0.22, radius * 0.35, 0, 2 * Math.PI);
-            ctx.fillStyle = 'rgba(255,255,255,0.18)';
+            ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
+            ctx.fillStyle = hGrd;
             ctx.fill();
 
-            // ── Label ABOVE the node (so neighboring nodes never cover it) ──
-            if (globalScale > 0.4 || isSearching || isHovered || selectedEntity?.id === node.id) {
-                ctx.font = `${fontSize}px Inter, sans-serif`;
-                const measuredWidth = ctx.measureText(label).width;
-                const labelY = node.y - radius - fontSize - 2;
-                const padding = 3;
+            // ── Label (fades in at zoom > 0.5, always shown for hovered/selected) ──
+            const showLabel = globalScale > 0.5 || isSearching || isHovered || isSelected;
+            if (showLabel) {
+                const label = (isHovered || isSelected) ? node.name : truncate(node.name);
+                const fontSize = Math.max(10 / globalScale, 2.5);
+                ctx.font = `600 ${fontSize}px 'JetBrains Mono', monospace`;
+                const tw = ctx.measureText(label).width;
+                const lY = node.y - radius - fontSize - 3;
+                const pad = 4;
 
-                // Label background pill
-                ctx.fillStyle = dimmed ? 'rgba(10,14,26,0.3)' : 'rgba(10,14,26,0.75)';
-                const rx = 3 / globalScale;
-                const bx = node.x - measuredWidth / 2 - padding;
-                const by = labelY - 1;
-                const bw = measuredWidth + padding * 2;
-                const bh = fontSize + 3;
+                // Pill bg
+                ctx.fillStyle = dimmed ? 'rgba(10,14,26,0.25)' : 'rgba(10,14,26,0.82)';
                 ctx.beginPath();
-                ctx.roundRect(bx, by, bw, bh, rx);
+                ctx.roundRect(node.x - tw / 2 - pad, lY - 1, tw + pad * 2, fontSize + 4, 3 / globalScale);
                 ctx.fill();
 
-                // Label text
+                // Text
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'top';
-                ctx.fillStyle = dimmed ? '#64748b' : '#f1f5f9';
-                ctx.fillText(label, node.x, labelY);
+                ctx.fillStyle = dimmed ? '#475569' : (isSelected ? color : '#e2e8f0');
+                ctx.fillText(label, node.x, lY);
             }
 
             ctx.globalAlpha = 1;
         },
-        [isSearching, matchedIds, selectedEntity, mergeSelection, connectSelection, maxConnections, hoveredNode]
+        [isSearching, matchedIds, selectedEntity, mergeSelection, connectSelection, maxConnections, hoveredNode, graphData.links]
     );
 
-    /* ─── Link painting ─── */
+    /* ─── Link painting — Neural Paths ─── */
     const paintLink = useCallback(
         (link, ctx, globalScale) => {
             const sourceId = link.source.id ?? link.source;
             const targetId = link.target.id ?? link.target;
-            const dimmed = isSearching && !matchedIds.has(sourceId) && !matchedIds.has(targetId);
 
-            ctx.strokeStyle = dimmed ? 'rgba(148,163,184,0.04)' : 'rgba(148,163,184,0.4)';
-            ctx.lineWidth = dimmed ? 0.5 : 1.2;
-            ctx.beginPath();
+            // Focus mode dim
+            const inFocusMode = !!selectedEntity;
+            const linkedToSelected = inFocusMode && (
+                sourceId === selectedEntity.id || targetId === selectedEntity.id
+            );
+            const focusDim = inFocusMode && !linkedToSelected;
+
+            // Search dim
+            const searchDim = isSearching && !matchedIds.has(sourceId) && !matchedIds.has(targetId);
+            const dimmed = searchDim || focusDim;
+
             const sx = link.source.x ?? 0;
             const sy = link.source.y ?? 0;
             const tx = link.target.x ?? 0;
             const ty = link.target.y ?? 0;
+
+            if (!Number.isFinite(sx) || !Number.isFinite(sy) || !Number.isFinite(tx) || !Number.isFinite(ty)) return;
+
+            // Neural path: semi-transparent line, brighter when connected to selection
+            const lineAlpha = dimmed ? 0.03 : (linkedToSelected ? 0.7 : 0.2);
+            const lineColor = linkedToSelected ? 'rgba(99,102,241,' : 'rgba(148,163,184,';
+            ctx.strokeStyle = lineColor + lineAlpha + ')';
+            ctx.lineWidth = dimmed ? 0.4 : (linkedToSelected ? 1.5 : 0.9);
+
+            ctx.beginPath();
             ctx.moveTo(sx, sy);
             ctx.lineTo(tx, ty);
             ctx.stroke();
 
-            // Arrow (shifted 70% towards target to not overlap mid-text)
+            // Arrow head (only on visible links)
             if (!dimmed) {
                 const angle = Math.atan2(ty - sy, tx - sx);
-                const arrowLen = 9 / globalScale;
-                const arrowX = sx + (tx - sx) * 0.7;
-                const arrowY = sy + (ty - sy) * 0.7;
+                const arrowLen = 8 / globalScale;
+                const arrowX = sx + (tx - sx) * 0.68;
+                const arrowY = sy + (ty - sy) * 0.68;
+                const arrowAlpha = linkedToSelected ? 0.9 : 0.45;
 
                 ctx.beginPath();
                 ctx.moveTo(arrowX, arrowY);
-                ctx.lineTo(
-                    arrowX - arrowLen * Math.cos(angle - Math.PI / 8),
-                    arrowY - arrowLen * Math.sin(angle - Math.PI / 8)
-                );
-                ctx.lineTo(
-                    arrowX - arrowLen * Math.cos(angle + Math.PI / 8),
-                    arrowY - arrowLen * Math.sin(angle + Math.PI / 8)
-                );
+                ctx.lineTo(arrowX - arrowLen * Math.cos(angle - Math.PI / 7), arrowY - arrowLen * Math.sin(angle - Math.PI / 7));
+                ctx.lineTo(arrowX - arrowLen * Math.cos(angle + Math.PI / 7), arrowY - arrowLen * Math.sin(angle + Math.PI / 7));
                 ctx.closePath();
-                ctx.fillStyle = 'rgba(255,255,255,0.75)';
+                ctx.fillStyle = `rgba(148,163,184,${arrowAlpha})`;
                 ctx.fill();
             }
 
-            // Edge label (only at sufficient zoom)
-            if (!dimmed && link.type && globalScale > 0.8) {
+            // Edge label (JetBrains Mono, only at high zoom)
+            if (!dimmed && link.type && globalScale > 0.9) {
                 const mx = (sx + tx) / 2;
                 const my = (sy + ty) / 2;
-                const edgeFontSize = Math.max(8 / globalScale, 2.5);
-                ctx.font = `${edgeFontSize}px Inter, sans-serif`;
+                const efs = Math.max(7 / globalScale, 2.5);
+                ctx.font = `500 ${efs}px 'JetBrains Mono', monospace`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillStyle = 'rgba(148,163,184,0.7)';
+                ctx.fillStyle = linkedToSelected ? 'rgba(129,140,248,0.9)' : 'rgba(100,116,139,0.6)';
                 ctx.fillText(link.type, mx, my - 3 / globalScale);
             }
         },
-        [isSearching, matchedIds]
+        [isSearching, matchedIds, selectedEntity]
     );
 
     /* ─── Graph zoom controls ─── */
@@ -571,57 +624,52 @@ export default function GraphView() {
 
     return (
         <>
-            {/* Top bar */}
-            <div style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                marginBottom: '12px', flexWrap: 'wrap', gap: '8px',
-            }}>
+            {/* ── Graph Top Bar ── */}
+            <div className="graph-topbar">
                 <div>
-                    <button className="btn btn-secondary" onClick={() => navigate('/')} style={{ marginRight: '8px' }}>
-                        ← Back
+                    <button className="btn btn-secondary" onClick={() => navigate('/')} style={{ gap: '6px', fontSize: '0.75rem' }}>
+                        ← Hub
                     </button>
                     {renamingWorkspace ? (
-                        <span style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
+                        <span style={{ display: 'inline-flex', gap: '6px', alignItems: 'center', marginLeft: '12px' }}>
                             <input
                                 className="input"
                                 value={workspaceNameInput}
                                 onChange={(e) => setWorkspaceNameInput(e.target.value)}
                                 autoFocus
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleRenameWorkspace(); if (e.key === 'Escape') setRenamingWorkspace(false); }}
-                                style={{ height: '32px', fontSize: '0.9rem', width: '240px' }}
+                                style={{ height: '30px', fontSize: '0.85rem', width: '220px', fontFamily: 'var(--font-mono)' }}
                             />
                             <button className="btn btn-primary" onClick={handleRenameWorkspace} style={{ padding: '4px 10px' }}>✓</button>
                             <button className="btn btn-secondary" onClick={() => setRenamingWorkspace(false)} style={{ padding: '4px 10px' }}>✕</button>
                         </span>
                     ) : (
-                        <span
-                            style={{ fontSize: '1.25rem', fontWeight: 700, cursor: 'pointer', color: 'var(--text-accent)' }}
-                            onClick={() => { setWorkspaceNameInput(workspaceInfo?.name || 'Untitled Project'); setRenamingWorkspace(true); }}
-                            title="Click to rename"
-                        >
-                            {workspaceInfo?.name || 'Untitled Project'}
-                        </span>
-                    )}
-                    {workspaceInfo && (
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginLeft: '12px' }}>
-                            {workspaceInfo.documents?.length} doc{workspaceInfo.documents?.length !== 1 ? 's' : ''} •{' '}
-                            {graphData.nodes.length} entities • {graphData.links.length} relationships
+                        <span style={{ marginLeft: '16px' }}>
+                            <span
+                                className="graph-workspace-name"
+                                onClick={() => { setWorkspaceNameInput(workspaceInfo?.name || 'Untitled Project'); setRenamingWorkspace(true); }}
+                                title="Click to rename"
+                            >
+                                {workspaceInfo?.name || 'Untitled Project'}
+                            </span>
+                            {workspaceInfo && (
+                                <div className="graph-meta">
+                                    WS-{String(id).padStart(4, '0')} &nbsp;·&nbsp;
+                                    {workspaceInfo.documents?.length} DOC{workspaceInfo.documents?.length !== 1 ? 'S' : ''} &nbsp;·&nbsp;
+                                    {graphData.nodes.length} ENTITIES &nbsp;·&nbsp;
+                                    {graphData.links.length} RELATIONSHIPS
+                                </div>
+                            )}
                         </span>
                     )}
                 </div>
-                <div style={{ display: 'flex', gap: '4px' }}>
-                    <button className="btn btn-primary" onClick={() => setShowAddEntity((v) => !v)} title="Add new entity" style={{ padding: '6px 10px' }}>
-                        Add Entity
+                <div className="graph-controls">
+                    <button className="btn btn-primary" onClick={() => setShowAddEntity((v) => !v)} style={{ fontSize: '0.75rem', gap: '5px' }}>
+                        + Entity
                     </button>
-                    <button className="btn btn-secondary" onClick={handleZoomIn} title="Zoom In" style={{ padding: '6px 10px' }}>
-                        +
-                    </button>
-                    <button className="btn btn-secondary" onClick={handleZoomOut} title="Zoom Out" style={{ padding: '6px 10px' }}>
-                        −
-                    </button>
-                    <button className="btn btn-secondary" onClick={handleCenter} title="Center & Reset View" style={{ padding: '6px 10px' }}>
-                        ⊞
-                    </button>
+                    <button className="btn btn-secondary" onClick={handleZoomIn} title="Zoom In" style={{ padding: '6px 10px' }}>+</button>
+                    <button className="btn btn-secondary" onClick={handleZoomOut} title="Zoom Out" style={{ padding: '6px 10px' }}>−</button>
+                    <button className="btn btn-secondary" onClick={handleCenter} title="Fit to View" style={{ padding: '6px 10px' }}>⊞</button>
                 </div>
             </div>
 
@@ -629,7 +677,7 @@ export default function GraphView() {
             {showAddEntity && (
                 <div className="add-entity-bar">
                     <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-accent)', whiteSpace: 'nowrap' }}>
-                         New Entity
+                        New Entity
                     </span>
                     <input
                         id="new-entity-name"
@@ -732,7 +780,7 @@ export default function GraphView() {
                 {/* Sidebar */}
                 <div className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
                     <div className="sidebar-header">
-                        <h2>Entity Details</h2>
+                        <span className="sidebar-title">Data Intelligence</span>
                         <button
                             className="close-btn"
                             onClick={() => {
@@ -746,311 +794,307 @@ export default function GraphView() {
                         </button>
                     </div>
 
-                    {entityDetail ? (
-                        <>
-                            {editing ? (
-                                /* ─── Edit Mode ─── */
-                                <div className="edit-entity-form">
-                                    <label className="edit-label" htmlFor="edit-entity-name">Name</label>
-                                    <input
-                                        id="edit-entity-name"
-                                        className="input"
-                                        value={editName}
-                                        onChange={(e) => setEditName(e.target.value)}
-                                        placeholder="Entity name"
-                                        autoFocus
-                                        onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') cancelEditing(); }}
-                                    />
-                                    <label className="edit-label" htmlFor="edit-entity-type" style={{ marginTop: '12px' }}>Type</label>
-                                    <select
-                                        id="edit-entity-type"
-                                        className="input edit-select"
-                                        value={ENTITY_TYPES.map(t => t.toLowerCase()).includes(editType.toLowerCase()) ? editType : '__custom__'}
-                                        onChange={(e) => {
-                                            if (e.target.value === '__custom__') {
-                                                setEditType('');
-                                            } else {
-                                                setEditType(e.target.value);
-                                            }
-                                        }}
-                                    >
-                                        {ENTITY_TYPES.map((t) => (
-                                            <option key={t} value={t}>{t}</option>
-                                        ))}
-                                        <option value="__custom__">Custom…</option>
-                                    </select>
-                                    {!ENTITY_TYPES.map(t => t.toLowerCase()).includes(editType.toLowerCase()) && (
+                    <div className="sidebar-body">
+                        {entityDetail ? (
+                            <>
+                                {editing ? (
+                                    /* ─── Edit Mode ─── */
+                                    <div className="edit-entity-form">
+                                        <label className="edit-label" htmlFor="edit-entity-name">Name</label>
                                         <input
-                                            id="edit-entity-type-custom"
+                                            id="edit-entity-name"
                                             className="input"
-                                            style={{ marginTop: '8px' }}
-                                            value={editType}
-                                            onChange={(e) => setEditType(e.target.value)}
-                                            placeholder="Enter custom type"
+                                            value={editName}
+                                            onChange={(e) => setEditName(e.target.value)}
+                                            placeholder="Entity name"
+                                            autoFocus
+                                            onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') cancelEditing(); }}
                                         />
+                                        <label className="edit-label" htmlFor="edit-entity-type" style={{ marginTop: '12px' }}>Type</label>
+                                        <select
+                                            id="edit-entity-type"
+                                            className="input edit-select"
+                                            value={ENTITY_TYPES.map(t => t.toLowerCase()).includes(editType.toLowerCase()) ? editType : '__custom__'}
+                                            onChange={(e) => {
+                                                if (e.target.value === '__custom__') {
+                                                    setEditType('');
+                                                } else {
+                                                    setEditType(e.target.value);
+                                                }
+                                            }}
+                                        >
+                                            {ENTITY_TYPES.map((t) => (
+                                                <option key={t} value={t}>{t}</option>
+                                            ))}
+                                            <option value="__custom__">Custom…</option>
+                                        </select>
+                                        {!ENTITY_TYPES.map(t => t.toLowerCase()).includes(editType.toLowerCase()) && (
+                                            <input
+                                                id="edit-entity-type-custom"
+                                                className="input"
+                                                style={{ marginTop: '8px' }}
+                                                value={editType}
+                                                onChange={(e) => setEditType(e.target.value)}
+                                                placeholder="Enter custom type"
+                                            />
+                                        )}
+                                        <div className="edit-actions">
+                                            <button
+                                                className="btn btn-primary"
+                                                onClick={handleSaveEdit}
+                                                disabled={saving}
+                                                id="save-entity-btn"
+                                            >
+                                                {saving ? (
+                                                    <><span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> Saving…</>
+                                                ) : (
+                                                    '✓ Save'
+                                                )}
+                                            </button>
+                                            <button className="btn btn-secondary" onClick={cancelEditing} disabled={saving}>
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    /* ─── View Mode ─── */
+                                    <>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                            <div className="entity-name-display">{entityDetail.name}</div>
+                                            <button
+                                                className="btn btn-ghost"
+                                                onClick={startEditing}
+                                                title="Edit entity"
+                                                id="edit-entity-trigger"
+                                                style={{ padding: '3px 8px', fontSize: '0.7rem' }}
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                className="btn btn-ghost"
+                                                onClick={handleDeleteEntity}
+                                                disabled={deleting}
+                                                title="Delete entity"
+                                                id="delete-entity-trigger"
+                                                style={{ padding: '3px 8px', fontSize: '0.7rem', color: 'var(--error)' }}
+                                            >
+                                                {deleting ? '…' : 'Delete'}
+                                            </button>
+                                        </div>
+                                        <span className={`entity-type-badge ${entityDetail.type?.toLowerCase()}`}>
+                                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor', display: 'inline-block' }} />
+                                            {entityDetail.type}
+                                        </span>
+                                    </>
+                                )}
+
+                                {/* Relationships */}
+                                {entityDetail.relationships?.length > 0 && (
+                                    <div style={{ marginTop: '16px' }}>
+                                        <div className="sidebar-section-label">Connections ({entityDetail.relationships.length})</div>
+                                        {entityDetail.relationships.map((r) => (
+                                            <div key={r.id} className="rel-item">
+                                                <span style={{ color: r.direction === 'outgoing' ? 'var(--success)' : 'var(--info)', fontSize: '0.9rem' }}>
+                                                    {r.direction === 'outgoing' ? '→' : '←'}
+                                                </span>
+                                                <span className="rel-type-label">{r.type}</span>
+                                                <span className="rel-target-name" style={{ flex: 1 }}>
+                                                    {r.direction === 'outgoing' ? r.target_name : r.source_name}
+                                                </span>
+                                                <button
+                                                    className="rel-delete-btn"
+                                                    title="Remove relationship"
+                                                    onClick={() => handleDeleteRelationship(r.id)}
+                                                    style={{ cursor: deletingRelId === r.id ? 'wait' : 'pointer' }}
+                                                >
+                                                    {deletingRelId === r.id ? '⋯' : '×'}
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Source Evidence — tabular layout */}
+                                <div style={{ marginTop: '16px' }}>
+                                    <div className="sidebar-section-label">Source Evidence ({entityDetail.snippets?.length || 0})</div>
+                                    {entityDetail.snippets?.length > 0 ? (
+                                        <div className="snippet-list">
+                                            {entityDetail.snippets.map((s) => (
+                                                <div key={s.id} className="snippet-item">
+                                                    <div className="snippet-header">
+                                                        <span className="snippet-source-tag" title={s.document_filename}>
+                                                            {s.document_filename?.split('.')[0]?.slice(0, 10) || 'SRC'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="snippet-content">"{s.source_text}"</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontFamily: 'var(--font-mono)' }}>
+                                            NO SNIPPETS FOUND
+                                        </p>
                                     )}
-                                    <div className="edit-actions">
+                                </div>
+                            </>
+                        ) : selectedEntity ? (
+                            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                                <div className="spinner" style={{ margin: '0 auto 12px' }} />
+                                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>
+                                    LOADING ENTITY DATA...
+                                </p>
+                            </div>
+                        ) : null}
+
+                        {/* Merge Panel */}
+                        <div className="merge-panel" style={{ margin: '0 var(--space-lg) var(--space-md)' }}>
+                            <div className="merge-panel-title">⟨ Merge Entities</div>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '10px', fontFamily: 'var(--font-mono)' }}>
+                                SHIFT+CLICK two nodes. First is kept, second is absorbed.
+                            </p>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                {mergeSelection.length === 0 && (
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                                        No entities selected
+                                    </span>
+                                )}
+                                {mergeSelection.map((m, i) => (
+                                    <div className="merge-entity" key={m.id}>
+                                        <span>
+                                            {i === 0 ? 'Keep: ' : ' Merge: '}
+                                            <strong>{m.name}</strong>
+                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginLeft: '4px' }}>
+                                                ({m.type})
+                                            </span>
+                                        </span>
+                                        <span
+                                            style={{ cursor: 'pointer', color: 'var(--error)', fontWeight: 700 }}
+                                            onClick={() => setMergeSelection((prev) => prev.filter((_, j) => j !== i))}
+                                        >
+                                            ×
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                            {mergeSelection.length === 2 && (
+                                <div className="merge-actions">
+                                    <button
+                                        className="btn btn-primary"
+                                        onClick={handleMerge}
+                                        disabled={merging}
+                                        id="merge-btn"
+                                    >
+                                        {merging ? (
+                                            <><span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> Merging…</>
+                                        ) : (
+                                            'Merge Entities'
+                                        )}
+                                    </button>
+                                    <button className="btn btn-secondary" onClick={() => setMergeSelection([])}>
+                                        Cancel
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Connect Panel */}
+                        <div className="connect-panel" style={{ margin: '0 var(--space-lg) var(--space-lg)' }}>
+                            <div className="connect-panel-title">⟨ Connect Entities</div>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '10px', fontFamily: 'var(--font-mono)' }}>
+                                CTRL+CLICK two nodes for source → target, then type the edge label.
+                            </p>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                {connectSelection.length === 0 && (
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                                        No entities selected
+                                    </span>
+                                )}
+                                {connectSelection.map((c, i) => (
+                                    <div className="connect-entity" key={c.id}>
+                                        <span>
+                                            {i === 0 ? ' Source: ' : ' Target: '}
+                                            <strong>{c.name}</strong>
+                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginLeft: '4px' }}>
+                                                ({c.type})
+                                            </span>
+                                        </span>
+                                        <span
+                                            style={{ cursor: 'pointer', color: 'var(--error)', fontWeight: 700 }}
+                                            onClick={() => setConnectSelection((prev) => prev.filter((_, j) => j !== i))}
+                                        >
+                                            ×
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                            {connectSelection.length === 2 && (
+                                <div style={{ marginTop: '10px' }}>
+                                    <div className="connect-preview">
+                                        <span className="connect-node-pill source">{connectSelection[0].name}</span>
+                                        <span className="connect-arrow">→</span>
+                                        <span className="connect-node-pill target">{connectSelection[1].name}</span>
+                                        <button
+                                            className="btn btn-secondary"
+                                            title="Swap direction"
+                                            style={{ padding: '2px 8px', fontSize: '0.75rem', marginLeft: '4px' }}
+                                            onClick={() => setConnectSelection((prev) => [prev[1], prev[0]])}
+                                        >
+                                            ⇄
+                                        </button>
+                                    </div>
+                                    <input
+                                        id="relationship-type-input"
+                                        className="input"
+                                        style={{ marginTop: '10px' }}
+                                        placeholder='Relationship type, e.g. "works_at"'
+                                        value={connectType}
+                                        onChange={(e) => setConnectType(e.target.value)}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') handleCreateRelationship(); }}
+                                    />
+                                    <div className="merge-actions">
                                         <button
                                             className="btn btn-primary"
-                                            onClick={handleSaveEdit}
-                                            disabled={saving}
-                                            id="save-entity-btn"
+                                            onClick={handleCreateRelationship}
+                                            disabled={connecting || !connectType.trim()}
+                                            id="create-relationship-btn"
                                         >
-                                            {saving ? (
-                                                <><span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> Saving…</>
+                                            {connecting ? (
+                                                <><span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> Creating…</>
                                             ) : (
-                                                '✓ Save'
+                                                'Create Relationship'
                                             )}
                                         </button>
-                                        <button className="btn btn-secondary" onClick={cancelEditing} disabled={saving}>
+                                        <button className="btn btn-secondary" onClick={() => { setConnectSelection([]); setConnectType(''); }}>
                                             Cancel
                                         </button>
                                     </div>
                                 </div>
-                            ) : (
-                                /* ─── View Mode ─── */
-                                <>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                                        <div className="entity-name" style={{ marginBottom: 0 }}>{entityDetail.name}</div>
-                                        <button
-                                            className="btn btn-secondary edit-entity-btn"
-                                            onClick={startEditing}
-                                            title="Edit entity"
-                                            id="edit-entity-trigger"
-                                        >
-                                            
-                                        </button>
-                                        <button
-                                            className="btn btn-danger edit-entity-btn"
-                                            onClick={handleDeleteEntity}
-                                            disabled={deleting}
-                                            title="Delete entity"
-                                            id="delete-entity-trigger"
-                                        >
-                                            {deleting ? '…' : ''}
-                                        </button>
-                                    </div>
-                                    <span className={`entity-type-badge ${entityDetail.type?.toLowerCase()}`}>
-                                        {entityDetail.type}
-                                    </span>
-                                </>
                             )}
-
-                            {/* Relationships connected to this entity */}
-                            {entityDetail.relationships?.length > 0 && (
-                                <div className="snippet-section" style={{ marginTop: '16px' }}>
-                                    <h3>Connections ({entityDetail.relationships.length})</h3>
-                                    {entityDetail.relationships.map((r) => (
-                                        <div key={r.id} style={{
-                                            display: 'flex', alignItems: 'center', gap: '8px',
-                                            padding: '8px 12px', background: 'var(--bg-card)',
-                                            borderRadius: 'var(--radius-sm)', marginBottom: '6px',
-                                            border: '1px solid var(--border-subtle)', fontSize: '0.82rem',
-                                        }}>
-                                            <span style={{ color: r.direction === 'outgoing' ? 'var(--success)' : 'var(--info)' }}>
-                                                {r.direction === 'outgoing' ? '→' : '←'}
-                                            </span>
-                                            <span style={{ color: 'var(--text-accent)', fontWeight: 500 }}>{r.type}</span>
-                                            <span style={{ color: 'var(--text-secondary)', flex: 1 }}>
-                                                {r.direction === 'outgoing' ? r.target_name : r.source_name}
-                                            </span>
-                                            <span
-                                                className="rel-delete-btn"
-                                                title="Remove this relationship"
-                                                onClick={() => handleDeleteRelationship(r.id)}
-                                                style={{
-                                                    cursor: deletingRelId === r.id ? 'wait' : 'pointer',
-                                                    color: 'var(--error)',
-                                                    fontWeight: 700,
-                                                    opacity: deletingRelId === r.id ? 0.4 : 0.5,
-                                                    fontSize: '0.9rem',
-                                                    transition: 'opacity 0.15s',
-                                                }}
-                                            >
-                                                {deletingRelId === r.id ? '⋯' : '×'}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            <div className="snippet-section">
-                                <h3>Source Evidence ({entityDetail.snippets?.length || 0})</h3>
-                                {entityDetail.snippets?.length > 0 ? (
-                                    entityDetail.snippets.map((s) => (
-                                        <div className="snippet-card" key={s.id}>
-                                            <div className="snippet-text">{s.source_text}</div>
-                                            <div className="snippet-source"> {s.document_filename}</div>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                                        No source snippets found.
-                                    </p>
-                                )}
-                            </div>
-                        </>
-                    ) : selectedEntity ? (
-                        <div style={{ textAlign: 'center', padding: '32px' }}>
-                            <div className="spinner" />
-                            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '8px' }}>
-                                Loading details…
-                            </p>
                         </div>
-                    ) : null}
+                    </div> {/* end sidebar-body */}
+                </div> {/* end sidebar */}
+            </div> {/* end graph-page */}
 
-                    {/* Merge Panel */}
-                    <div className="merge-panel">
-                        <h4> Merge Entities</h4>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                            <strong>Shift+Click</strong> two nodes to select them for merging.
-                            The first is <em>kept</em>, the second is <em>merged into</em> it.
-                        </p>
-                        <div className="merge-selection">
-                            {mergeSelection.length === 0 && (
-                                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                                    No entities selected
-                                </span>
-                            )}
-                            {mergeSelection.map((m, i) => (
-                                <div className="merge-entity" key={m.id}>
-                                    <span>
-                                        {i === 0 ? 'Keep: ' : ' Merge: '}
-                                        <strong>{m.name}</strong>
-                                        <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginLeft: '4px' }}>
-                                            ({m.type})
-                                        </span>
-                                    </span>
-                                    <span
-                                        style={{ cursor: 'pointer', color: 'var(--error)', fontWeight: 700 }}
-                                        onClick={() => setMergeSelection((prev) => prev.filter((_, j) => j !== i))}
-                                    >
-                                        ×
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                        {mergeSelection.length === 2 && (
-                            <div className="merge-actions">
-                                <button
-                                    className="btn btn-primary"
-                                    onClick={handleMerge}
-                                    disabled={merging}
-                                    id="merge-btn"
-                                >
-                                    {merging ? (
-                                        <><span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> Merging…</>
-                                    ) : (
-                                        'Merge Entities'
-                                    )}
-                                </button>
-                                <button className="btn btn-secondary" onClick={() => setMergeSelection([])}>
-                                    Cancel
-                                </button>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Connect / Create Relationship Panel */}
-                    <div className="connect-panel">
-                        <h4> Connect Entities</h4>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                            <strong>Ctrl+Click</strong> two nodes to select source → target,
-                            then type the relationship label.
-                        </p>
-                        <div className="merge-selection">
-                            {connectSelection.length === 0 && (
-                                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                                    No entities selected
-                                </span>
-                            )}
-                            {connectSelection.map((c, i) => (
-                                <div className="connect-entity" key={c.id}>
-                                    <span>
-                                        {i === 0 ? ' Source: ' : ' Target: '}
-                                        <strong>{c.name}</strong>
-                                        <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginLeft: '4px' }}>
-                                            ({c.type})
-                                        </span>
-                                    </span>
-                                    <span
-                                        style={{ cursor: 'pointer', color: 'var(--error)', fontWeight: 700 }}
-                                        onClick={() => setConnectSelection((prev) => prev.filter((_, j) => j !== i))}
-                                    >
-                                        ×
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                        {connectSelection.length === 2 && (
-                            <div style={{ marginTop: '10px' }}>
-                                <div className="connect-preview">
-                                    <span className="connect-node-pill source">{connectSelection[0].name}</span>
-                                    <span className="connect-arrow">→</span>
-                                    <span className="connect-node-pill target">{connectSelection[1].name}</span>
-                                    <button
-                                        className="btn btn-secondary"
-                                        title="Swap direction"
-                                        style={{ padding: '2px 8px', fontSize: '0.75rem', marginLeft: '4px' }}
-                                        onClick={() => setConnectSelection((prev) => [prev[1], prev[0]])}
-                                    >
-                                        ⇄
-                                    </button>
-                                </div>
-                                <input
-                                    id="relationship-type-input"
-                                    className="input"
-                                    style={{ marginTop: '10px' }}
-                                    placeholder='Relationship type, e.g. "works_at"'
-                                    value={connectType}
-                                    onChange={(e) => setConnectType(e.target.value)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') handleCreateRelationship(); }}
-                                />
-                                <div className="merge-actions">
-                                    <button
-                                        className="btn btn-primary"
-                                        onClick={handleCreateRelationship}
-                                        disabled={connecting || !connectType.trim()}
-                                        id="create-relationship-btn"
-                                    >
-                                        {connecting ? (
-                                            <><span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> Creating…</>
-                                        ) : (
-                                            'Create Relationship'
-                                        )}
-                                    </button>
-                                    <button className="btn btn-secondary" onClick={() => { setConnectSelection([]); setConnectType(''); }}>
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            {/* Legend */}
+            {/* ── Legend ── */}
             <div style={{
-                display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center',
-                padding: '12px 16px', marginTop: '8px',
+                display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center',
+                padding: '10px 14px', marginTop: '10px',
                 background: 'var(--bg-card)', borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-subtle)', fontSize: '0.8rem',
+                border: '1px solid var(--border-subtle)',
             }}>
-                <span style={{ color: 'var(--text-muted)', fontWeight: 600, marginRight: '4px' }}>Legend:</span>
                 {LEGEND_ITEMS.map(({ type, color }) => (
-                    <span key={type} style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-secondary)' }}>
-                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, display: 'inline-block', boxShadow: `0 0 6px ${color}40` }} />
+                    <span key={type} className="legend-item">
+                        <span className="legend-dot" style={{ background: color, color }} />
                         {type}
                     </span>
                 ))}
-                <span style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                    Node size = connection count • Click = details / edit • Shift+Click = merge • Ctrl+Click = connect
+                <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
+                    SIZE=CONNECTIONS · CLICK=DETAILS · SHIFT+CLICK=MERGE · CTRL+CLICK=CONNECT
                 </span>
             </div>
 
-            {/* Subtle AI Disclaimer */}
-            <div style={{ textAlign: 'center', marginTop: '12px', opacity: 0.5, fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                <span>Knowledge is extracted by AI — results may contain inaccuracies or false positives. Verify with document evidence.</span>
+            <div style={{ textAlign: 'center', marginTop: '10px', opacity: 0.4, fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}>
+                AI-GENERATED EXTRACTION — VERIFY AGAINST SOURCE MATERIAL
             </div>
 
             {toast && <div className={`toast ${toast.type}`}>{toast.message}</div>}

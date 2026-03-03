@@ -28,6 +28,7 @@ An AI-powered web application that transforms a set of documents into an interac
 | Docker + Docker Compose | any recent |
 | Node.js | ≥ 18 |
 | Python | ≥ 3.11 |
+| Redis | ≥ 6.x (for background workers) |
 | `uv` (Python package manager) | latest |
 | A **Groq API key** | [get one free](https://console.groq.com) |
 
@@ -71,7 +72,11 @@ postgresql://postgres:postgres@localhost:5432/knowledgegraph
 ```
 You can override it with the `DATABASE_URL` environment variable.
 
-#### 2. Backend
+#### 2. Start Redis
+
+You need a running Redis instance for the ARQ background worker. The default connection is `localhost:6379`. You can override it with `REDIS_HOST` and `REDIS_PORT`.
+
+#### 3. Backend (API & Worker)
 
 ```bash
 cd backend
@@ -84,14 +89,17 @@ cd backend
 # Install dependencies with uv
 uv sync
 
-# Run the API server (auto-creates tables on first start)
+# In terminal 1: Run the API server (auto-creates tables on first start)
 uv run uvicorn main:app --reload --port 8000
+
+# In terminal 2: Run the background ARQ worker (must be in 'backend' directory)
+uv run arq app.worker.main.WorkerSettings
 ```
 
 API will be available at `http://localhost:8000`.  
 Interactive Swagger docs: `http://localhost:8000/docs`
 
-#### 3. Frontend
+#### 4. Frontend
 
 ```bash
 cd frontend
@@ -110,35 +118,38 @@ Frontend will be available at `http://localhost:5173`, with `/api` proxied autom
 mini knowledge graph/
 ├── backend/
 │   ├── app/
-│   │   ├── api/             # API routes (auth, entities, health, relationships, workspace)
-│   │   ├── auth/            # JWT bearer, password hashing, and login/register services
-│   │   ├── core/            # Config and database setup
-│   │   ├── models/          # SQLAlchemy SQL models
+│   │   ├── api/             # API routes (admin, auth, entities, health, rels, workspace)
+│   │   ├── auth/            # JWT logic, bearer token, and auth services
+│   │   ├── core/            # Config settings and database engine setup
+│   │   ├── models/          # SQLAlchemy SQL models (sql.py)
 │   │   ├── schemas/         # Pydantic validation models
-│   │   ├── utils/           # Helper functions
-│   │   └── worker/          # LangChain/Groq LLM extraction logic
-│   ├── main.py              # FastAPI app setup, CORS, lifespan
+│   │   ├── utils/           # Shared utility helpers (helpers.py)
+│   │   └── worker/          # Redis/ARQ task processor, Groq LLM, & Graph logic
+│   ├── main.py              # FastAPI app initialization and route registration
 │   ├── Dockerfile
-│   └── pyproject.toml
+│   ├── pyproject.toml
+│   └── uv.lock
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx          # Routing shell (Dashboard | GraphView | Status | Help)
+│   │   ├── App.jsx          # React Router entrypoint and Shell
 │   │   ├── api.js           # Axios wrappers for every backend endpoint
-│   │   ├── index.css        # Full design system (dark theme, tokens, components)
-│   │   └── pages/
-│   │       ├── Dashboard.jsx      # File upload, workspace list cards
-│   │       ├── GraphView.jsx      # Interactive force graph + sidebar
-│   │       ├── StatusPage.jsx     # Health check and global stats
-│   │       ├── HelpPage.jsx       # User guide
-│   │       ├── Login.jsx          # Login form
-│   │       ├── Register.jsx       # Registration form
-│   │       └── ForgotPassword.jsx # Password reset form
+│   │   ├── index.css        # Full design system (Tokens, Cards, Animations)
+│   │   └── pages/           # Platform pages (Landing, Dashboard, Graph, Auth, Help)
+│   ├── index.html
+│   ├── Dockerfile
+│   ├── nginx.conf           # Reverse proxy config for container deployment
 │   ├── vite.config.js
-│   └── package.json
+│   ├── package.json
+│   └── package-lock.json
 │
-├── docker-compose.yml
-└── .env                      # Root env file (GROQ_API_KEY)
+├── tests/                   # Application test suite
+├── docker-compose.yml       # Multi-service container orchestration
+├── .env.example             # Template for required environment variables
+├── AI_NOTES.md              # AI-human collaboration details
+├── PROMPTS_USED.md          # Core LLM prompt templates
+├── ABOUTME.md               # Author information
+└── README.md                # System documentation
 ```
 
 ---
@@ -161,7 +172,7 @@ mini knowledge graph/
 | **Entity merge** | Reassigns all relationships and snippets from `merge_id` to `keep_id`, removes self-loops and duplicate edges, then deletes the merged entity. |
 | **Entity search** | Case-insensitive `ilike` filter on `/workspaces/{id}/entities?search=...`. |
 | **Snippets** | Every extracted entity or relationship is linked back to the sentence it came from and the source document. |
-| **Async API** | All route handlers are `async def`. The blocking Groq call runs in a `ThreadPoolExecutor` via `asyncio.run_in_executor`, keeping the event loop free for concurrent requests. |
+| **Async API & Task Queue** | All route handlers are `async def`. Heavy extraction tasks are offloaded to a Redis-backed `arq` worker, preventing HTTP timeouts for large corpora. The web tier stays completely non-blocking. |
 | **Health & Stats endpoints** | `/api/health` pings the DB and Groq; `/api/stats` returns global counts. |
 | **Retry logic** | LLM calls retry up to 3 times with exponential back-off on JSON decode errors or network failures. |
 | **Database** | PostgreSQL with SQLAlchemy 2.0. Connection pool (`size=5`, `max_overflow=10`, `pool_recycle=300`). All FK cascades set to `DELETE`. Tables auto-created on startup. |
@@ -199,7 +210,6 @@ mini knowledge graph/
 - **Input sanitisation / rate limiting** – No request-level rate limiting on the upload endpoint; a single user can exhaust LLM quota rapidly.
 
 ### Backend Performance
-- **Task queue (worker-based ingestion)** – File processing is currently synchronous within a single request. For large corpora the HTTP timeout can be hit before extraction finishes. The right fix is a task queue (e.g. **Celery + Redis** or **ARQ**): the upload endpoint enqueues a job and immediately returns a job ID; the client polls a `/jobs/{id}/status` endpoint for progress.
 - **Parallel per-chunk extraction** – Chunks for a single document are processed sequentially. They could be dispatched concurrently with `asyncio.gather`, subject to Groq rate limits.
 - **Database migrations** – There is no Alembic migration history. Schema changes require a manual `Base.metadata.create_all`. Alembic is already listed as a dependency but migrations have not been authored.
 - **Pagination** – `/api/workspaces` is hard-limited to 5. Entity lists have no pagination, so very large graphs return the full list in one response.
@@ -223,7 +233,7 @@ mini knowledge graph/
 | Layer | Technology |
 |-------|-----------|
 | **LLM** | Groq Cloud – `llama-3.3-70b-versatile` via `langchain-groq` |
-| **Backend** | Python 3.12, FastAPI, Uvicorn, SQLAlchemy 2.0 |
+| **Backend** | Python 3.12, FastAPI, Uvicorn, SQLAlchemy 2.0, ARQ (Redis) |
 | **Database** | PostgreSQL 16 |
 | **PDF parsing** | `pdfplumber` |
 | **Frontend** | React 18, Vite 5, `react-force-graph-2d` (D3 v7 under the hood) |
@@ -247,3 +257,7 @@ SECRET_KEY=your-secret-key-here
 ```
 
 An example file is provided at the root folder: `.env.example`.
+
+---
+
+**Note**: The whole frontend of this application is made with the help of LLMs (AI).

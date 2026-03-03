@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 3600
     SECRET_KEY: str = os.getenv("SECRET_KEY", "")
-    MAX_REQUESTS_PER_WINDOW: int = 100
+    MAX_REQUESTS_PER_WINDOW: int = 1000
     ADMIN_KEY: int = 555555
 
     #Groq

@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+// Rely purely on Vite's local dev server proxy, wiping out local hardcoded endpoints completely.
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
+console.log('[API] Base URL:', API_BASE);
 
 const api = axios.create({ baseURL: API_BASE });
 
@@ -18,9 +20,16 @@ api.interceptors.request.use(
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response && error.response.status === 401) {
-            localStorage.removeItem('access_token');
-            window.location.href = '/login';
+        if (error.response) {
+            console.error('[API Error]', error.response.status, error.response.data);
+            if (error.response.status === 401) {
+                localStorage.removeItem('access_token');
+                window.location.href = '/login';
+            }
+        } else if (error.request) {
+            console.error('[API Network Error] No response received:', error.message);
+        } else {
+            console.error('[API Setup Error]', error.message);
         }
         return Promise.reject(error);
     }
@@ -51,15 +60,17 @@ export const renameWorkspace = (workspaceId, name) =>
 
 export const uploadFiles = (files, name, onUploadProgress) => {
     const formData = new FormData();
-    files.forEach((f) => formData.append('files', f));
-
-    let url = '/workspaces/upload';
-    if (name && name.trim() !== '') {
-        url += `?name=${encodeURIComponent(name.trim())}`;
+    for (let i = 0; i < files.length; i++) {
+        formData.append('files', files[i]);
     }
 
-    return api.post(url, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+    if (name && name.trim() !== '') {
+        formData.append('name', name.trim());
+    }
+
+    console.log('[Upload] Triggering native upload API hook explicitly to:', API_BASE + '/workspaces/upload');
+
+    return api.post('/workspaces/upload', formData, {
         onUploadProgress,
     });
 };
